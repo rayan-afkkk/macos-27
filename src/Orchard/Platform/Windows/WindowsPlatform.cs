@@ -39,16 +39,18 @@ public sealed class WindowsPlatform : IShellPlatform
         _settings = settings;
         _installed = new(ScanStartMenu);
         _winEvent = OnWinEvent;
-        _rescan = new DispatcherTimer(TimeSpan.FromMilliseconds(120), DispatcherPriority.Background, (_, _) => { _rescan!.Stop(); Rescan(); });
+        _rescan = new DispatcherTimer(TimeSpan.FromMilliseconds(300), DispatcherPriority.Background, (_, _) => { _rescan!.Stop(); Rescan(); });
 
         foreach (var p in settings.Pinned) _dock.Add(FromPinned(p));
         _dock.Insert(Math.Min(1, _dock.Count), new AppEntry { Id = "orchard:launchpad", Name = "Launchpad", Icon = new VectorIcon("launchpad"), Kind = AppKind.Launchpad, IsPinned = true });
         _dock.Add(new AppEntry { Id = "orchard:trash", Name = "Recycle Bin", Icon = new VectorIcon("trash"), Kind = AppKind.Trash, IsPinned = true, Target = "shell:RecycleBinFolder" });
 
+        // Keep the global hooks narrow. Every event is marshalled onto our UI thread, and a system-wide
+        // LOCATIONCHANGE hook fires for the mouse cursor on every pointer move (up to 1000/s), which starves the
+        // dock's animation. Move/rename events are only watched for the foreground app's process (HookForeground).
         Hook(Native.EVENT_SYSTEM_FOREGROUND, Native.EVENT_SYSTEM_FOREGROUND);
         Hook(Native.EVENT_SYSTEM_MINIMIZESTART, Native.EVENT_SYSTEM_MINIMIZEEND);
-        Hook(Native.EVENT_OBJECT_CREATE, Native.EVENT_OBJECT_HIDE);
-        Hook(Native.EVENT_OBJECT_LOCATIONCHANGE, Native.EVENT_OBJECT_NAMECHANGE);
+        Hook(Native.EVENT_OBJECT_DESTROY, Native.EVENT_OBJECT_HIDE);
         Hook(Native.EVENT_OBJECT_CLOAKED, Native.EVENT_OBJECT_UNCLOAKED);
         Rescan();
         UpdateForeground();
@@ -74,10 +76,23 @@ public sealed class WindowsPlatform : IShellPlatform
         if (h != 0) _hooks.Add(h);
     }
 
+    private nint _fgHook;
+    private uint _fgHookPid;
+
+    /// <summary>Move/resize/rename events, but only from the process that owns the foreground window.</summary>
+    private void HookForeground(nint hwnd)
+    {
+        Native.GetWindowThreadProcessId(hwnd, out uint pid);
+        if (pid == _fgHookPid) return;
+        if (_fgHook != 0) Native.UnhookWinEvent(_fgHook);
+        _fgHookPid = pid;
+        _fgHook = pid == 0 ? 0 : Native.SetWinEventHook(Native.EVENT_OBJECT_LOCATIONCHANGE, Native.EVENT_OBJECT_NAMECHANGE, 0, _winEvent, pid, 0, Native.WINEVENT_OUTOFCONTEXT);
+    }
+
     private void OnWinEvent(nint hook, uint ev, nint hwnd, int idObject, int idChild, uint thread, uint time)
     {
         if (idObject != Native.OBJID_WINDOW || idChild != Native.CHILDID_SELF || hwnd == 0) return;
-        if (ev is Native.EVENT_OBJECT_SHOW or Native.EVENT_OBJECT_LOCATIONCHANGE && Native.GetClass(hwnd) is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+        if (ev == Native.EVENT_OBJECT_SHOW && Native.GetClass(hwnd) is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
         {
             TaskbarShown?.Invoke();
             return;
@@ -137,6 +152,9 @@ public sealed class WindowsPlatform : IShellPlatform
         return path;
     }
 
+    private readonly Dictionary<nint, string?> _pathCache = [];
+    private string _lastDockSignature = "";
+
     private void Rescan()
     {
         var found = new List<nint>();
@@ -144,10 +162,12 @@ public sealed class WindowsPlatform : IShellPlatform
 
         foreach (var app in _dock) app.Windows.Clear();
         _windowApp.Clear();
+        // A window's process never changes, so resolve each executable path once (it costs an OpenProcess call).
+        foreach (var gone in _pathCache.Keys.Where(h => !found.Contains(h)).ToList()) _pathCache.Remove(gone);
 
         foreach (var hwnd in found)
         {
-            var path = AppPathFor(hwnd);
+            if (!_pathCache.TryGetValue(hwnd, out var path)) _pathCache[hwnd] = path = AppPathFor(hwnd);
             if (path == null) continue;
             var app = _dock.FirstOrDefault(a => Matches(a, path));
             if (app == null)
@@ -167,6 +187,11 @@ public sealed class WindowsPlatform : IShellPlatform
 
         // Running-only apps leave the dock when their last window closes.
         _dock.RemoveAll(a => !a.IsPinned && !a.IsRunning && a.Kind == AppKind.Normal);
+
+        // Only tell the dock when something it shows actually changed (which apps, which are running).
+        var signature = string.Join("|", _dock.Select(a => a.Id + (a.IsRunning ? "*" : "")));
+        if (signature == _lastDockSignature) return;
+        _lastDockSignature = signature;
         DockAppsChanged?.Invoke();
     }
 
@@ -195,6 +220,7 @@ public sealed class WindowsPlatform : IShellPlatform
             return;
         }
 
+        HookForeground(hwnd);
         var bounds = ToPixelRect(Native.VisibleBounds(hwnd));
         _windowApp.TryGetValue(hwnd, out var appId);
         if (appId == null) { Rescan(); _windowApp.TryGetValue(hwnd, out appId); }
@@ -204,9 +230,16 @@ public sealed class WindowsPlatform : IShellPlatform
         if (raiseChanged || previous != hwnd) ForegroundChanged?.Invoke();
     }
 
+    private (DateTime At, nint Window, PixelRect Bounds, bool Fullscreen) _fullscreenCache;
+
     public ForegroundInfo? ForegroundState(PixelRect monitor)
     {
         if (Foreground is not { } fg || fg.IsMinimized) return null;
+        // The shell asks ~30 times a second; the expensive part (asking the shell about fullscreen/presentation
+        // state) is reused for 400 ms unless the window changed or moved.
+        var cache = _fullscreenCache;
+        if (cache.Window == fg.Handle && cache.Bounds == fg.Bounds && DateTime.UtcNow - cache.At < TimeSpan.FromMilliseconds(400))
+            return new ForegroundInfo(new Rect(fg.Bounds.X, fg.Bounds.Y, fg.Bounds.Width, fg.Bounds.Height), fg.IsMaximized, cache.Fullscreen, true);
         var mon = Native.MonitorFor(fg.Handle);
         var monRect = ToRect(mon.rcMonitor);
         var b = new Rect(fg.Bounds.X, fg.Bounds.Y, fg.Bounds.Width, fg.Bounds.Height);
@@ -218,6 +251,7 @@ public sealed class WindowsPlatform : IShellPlatform
         if (Native.SHQueryUserNotificationState(out int quns) == 0 &&
             quns is Native.QUNS_BUSY or Native.QUNS_RUNNING_D3D_FULL_SCREEN or Native.QUNS_PRESENTATION_MODE)
             fullscreen = true;
+        _fullscreenCache = (DateTime.UtcNow, fg.Handle, fg.Bounds, fullscreen);
         return new ForegroundInfo(b, fg.IsMaximized, fullscreen, true);
     }
 
@@ -527,6 +561,7 @@ public sealed class WindowsPlatform : IShellPlatform
     {
         foreach (var h in _hooks) Native.UnhookWinEvent(h);
         _hooks.Clear();
+        if (_fgHook != 0) Native.UnhookWinEvent(_fgHook);
         _rescan.Stop();
     }
 }

@@ -20,7 +20,9 @@ public static class Glass
 
     public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true)
     {
-        if (shadow)
+        // No soft shadow on the real desktop: shell windows clip to their own shapes, so it would barely show, and
+        // a large blurred shadow redrawn every animation frame is the single most expensive thing glass can do.
+        if (shadow && !Palette.Solid)
         {
             var shadows = new BoxShadows(new BoxShadow { OffsetY = 8, Blur = 28, Color = Palette.GlassShadow.WithAlpha(Palette.GlassShadow.A / 255.0 * 0.8) });
             ctx.DrawRectangle(Brushes.Transparent, null, shape, shadows);

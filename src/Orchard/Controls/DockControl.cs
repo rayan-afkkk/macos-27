@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Orchard.Model;
 using Orchard.Rendering;
 using Orchard.Services;
@@ -71,7 +72,8 @@ public sealed class DockControl : Control
         _pointerX = x;
         _hover = hover;
         _hoverSince = Now - TimeSpan.FromSeconds(1);
-        for (int i = 0; i < _scale.Length; i++) _scale[i] = TargetScale(i);
+        var centers = RestingCenters();
+        for (int i = 0; i < _scale.Length; i++) _scale[i] = TargetScale(i, centers);
         InvalidateVisual();
     }
 
@@ -102,10 +104,12 @@ public sealed class DockControl : Control
         return lefts.Select(l => x0 + l + IconSize / 2).ToArray();
     }
 
-    private double TargetScale(int i)
+    private double TargetScale(int i) => TargetScale(i, RestingCenters());
+
+    private double TargetScale(int i, double[] restingCenters)
     {
         if (!Magnify || _pointerX is not { } px) return 1;
-        return DockMath.Scale(px - RestingCenters()[i], IconSize * 3.2, MaxScale);
+        return DockMath.Scale(px - restingCenters[i], IconSize * 3.2, MaxScale);
     }
 
     private record struct Layout(Rect Shelf, Rect[] Icons, double SlideY);
@@ -231,9 +235,10 @@ public sealed class DockControl : Control
     public bool Advance(double dt)
     {
         bool moving = false;
+        var centers = RestingCenters();
         for (int i = 0; i < _scale.Length; i++)
         {
-            double t = TargetScale(i);
+            double t = TargetScale(i, centers);
             _scale[i] = DockMath.Approach(_scale[i], t, dt, 22);
             moving |= _scale[i] != t;
         }
@@ -288,7 +293,7 @@ public sealed class DockControl : Control
                     new Point(x, layout.Shelf.Y + Padding + 4), new Point(x, layout.Shelf.Bottom - Padding - 4));
             }
 
-            app.Icon.Draw(ctx, r);
+            DrawIcon(ctx, app.Icon, r);
             if (app == _pressed)
                 ctx.DrawGeometry(Palette.Brush(Color.FromArgb(0x50, 0, 0, 0)), null, Shapes.Squircle(r.Deflate(r.Width * 0.06)));
 
@@ -327,6 +332,44 @@ public sealed class DockControl : Control
             _lastShape = shape;
             ShapeChanged?.Invoke(shape);
         }
+    }
+
+    // ---- icon cache ----------------------------------------------------------------------------
+    // Vector icons are many gradients and paths; drawing ~20 of them every animation frame is what made the
+    // magnification wave stutter. Each icon is rendered once at its largest on-screen size and then just scaled.
+
+    private readonly Dictionary<IconArt, RenderTargetBitmap> _iconCache = new(ReferenceEqualityComparer.Instance);
+    private int _iconCachePx;
+    private DateTime _iconCacheDay;
+
+    private void DrawIcon(DrawingContext ctx, IconArt icon, Rect r)
+    {
+        double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+        int px = (int)Math.Ceiling(IconSize * Math.Max(1, MaxScale) * scaling);
+        if (px != _iconCachePx || _iconCacheDay != DateTime.Today)
+        {
+            // Size or DPI changed, or a new day (the Calendar icon shows the date): start over.
+            foreach (var old in _iconCache.Values) old.Dispose();
+            _iconCache.Clear();
+            _iconCachePx = px;
+            _iconCacheDay = DateTime.Today;
+        }
+        if (!_iconCache.TryGetValue(icon, out var bitmap))
+        {
+            try
+            {
+                bitmap = new RenderTargetBitmap(new PixelSize(px, px), new Vector(96, 96));
+                using (var bctx = bitmap.CreateDrawingContext()) icon.Draw(bctx, new Rect(0, 0, px, px));
+                _iconCache[icon] = bitmap;
+            }
+            catch (Exception)
+            {
+                icon.Draw(ctx, r); // no offscreen rendering available: draw directly
+                return;
+            }
+        }
+        using (ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.HighQuality }))
+            ctx.DrawImage(bitmap, new Rect(0, 0, px, px), r);
     }
 
     private RoundedRect DrawLabel(DrawingContext ctx, string text, Rect icon, double opacity)
