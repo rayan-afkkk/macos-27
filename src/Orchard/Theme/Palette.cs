@@ -30,8 +30,20 @@ public static class Palette
     public static readonly FontFamily Font = new("avares://Orchard/Assets/Fonts#Inter, Segoe UI Variable Text, Segoe UI");
 
     // Glass: a translucent tint laid over the OS blur (or over the pre-blurred wallpaper in preview).
-    public static Color GlassTint => Dark ? Color.FromArgb(0xC8, 0x0C, 0x0C, 0x0E) : Color.FromArgb(0x5C, 0xFF, 0xFF, 0xFF);
-    public static Color GlassTintStrong => Dark ? Color.FromArgb(0xE8, 0x16, 0x16, 0x18) : Color.FromArgb(0xC4, 0xF6, 0xF6, 0xF8);
+    /// <summary>
+    /// True when surfaces may have nothing blurred behind them (the real Windows shell): glass is then painted
+    /// more opaque so it still reads as frosted rather than as a faint film over the wallpaper.
+    /// </summary>
+    public static bool Solid { get; set; }
+
+    public static Color GlassTint => (Dark, Solid) switch
+    {
+        (true, false) => Color.FromArgb(0xC8, 0x0C, 0x0C, 0x0E),
+        (true, true) => Color.FromArgb(0xE6, 0x16, 0x16, 0x19),
+        (false, false) => Color.FromArgb(0x5C, 0xFF, 0xFF, 0xFF),
+        (false, true) => Color.FromArgb(0xD6, 0xF4, 0xF4, 0xF7),
+    };
+    public static Color GlassTintStrong => Dark ? Color.FromArgb(Solid ? (byte)0xF2 : (byte)0xE8, 0x16, 0x16, 0x18) : Color.FromArgb(Solid ? (byte)0xEE : (byte)0xC4, 0xF6, 0xF6, 0xF8);
     public static Color GlassRimTop => Dark ? Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF);
     public static Color GlassRimBottom => Dark ? Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF);
     public static Color GlassOutline => Dark ? Color.FromArgb(0x99, 0x00, 0x00, 0x00) : Color.FromArgb(0x26, 0x00, 0x00, 0x00);

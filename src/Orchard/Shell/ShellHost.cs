@@ -40,6 +40,9 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private readonly WidgetBoard? _widgets;
     private readonly WeatherService _weather;
     private int _appearancePoll;
+    private PixelRect _dockRect, _widgetsRect;
+    private bool _dockExpanded;
+    private int _placementPoll;
 
     private ShellWindow? _popup;
     private bool _popupIsDockMenu;
@@ -60,6 +63,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _settings = settings;
         _platform = platform;
         _monitor = platform.PrimaryMonitor;
+        Palette.Solid = true;
         Palette.Dark = settings.Appearance switch { Appearance.Dark => true, Appearance.Light => false, _ => platform.DarkMode };
         MenuCatalog.WindowTitle = Native.GetText;
 
@@ -91,13 +95,15 @@ public sealed class ShellHost : IShellCommands, IDisposable
         // ---- dock ----
         _dock = new DockControl { IconSize = settings.IconSize, MaxScale = settings.MagnifiedScale, Magnify = settings.Magnification };
         _dockWindow = new ShellWindow(activatable: false) { Content = _dock, Title = "Orchard Dock" };
-        int dockHeight = (int)Math.Ceiling(_dock.RequiredHeight * _dockWindow.Scale);
-        _dockWindow.PlaceAt(new PixelRect(_monitor.X, _monitor.Bottom - dockHeight, _monitor.Width, dockHeight));
         _dock.Items = platform.DockApps;
+        // The dock window hugs the shelf and only grows (upwards and sideways) while you hover it, so it never
+        // blocks clicks on the strip of screen around it. See UpdateDockWindow.
+        _dockRect = DockRect(expanded: false);
+        _dockWindow.PlaceAt(_dockRect);
         _dock.ItemClicked += OnDockClick;
         _dock.ItemContextRequested += OnDockContext;
         _dock.ShapeChanged += shapes => Dispatcher.UIThread.Post(() => _dockWindow.SetShape(shapes));
-        _dockWindow.Opened += (_, _) => { _dockWindow.SetShape([]); _dockWindow.EnableBlur(); };
+        _dockWindow.Opened += (_, _) => _dockWindow.EnsurePlacement(_dockRect);
         platform.DockAppsChanged += () => _dock.Items = platform.DockApps.ToList();
 
         // ---- traffic lights (follow the foreground window) ----
@@ -114,9 +120,11 @@ public sealed class ShellHost : IShellCommands, IDisposable
             var widgets = _widgets = new WidgetBoard(platform, _weather) { Kinds = settings.Widgets };
             var window = _widgetsWindow = new ShellWindow(activatable: false, topmost: false) { Content = widgets, Title = "Orchard Widgets" };
             double ws = window.Scale;
-            window.PlaceAt(new PixelRect(_monitor.X + (int)(24 * ws), _monitor.Y + (int)((MenuBarView.BarHeight + 18) * ws),
-                (int)Math.Ceiling(WidgetBoard.BoardWidth * ws) + 2, (int)Math.Ceiling(widgets.Height * ws) + 2));
-            window.Opened += (_, _) => { window.SetShape(widgets.TileShapes); window.EnableBlur(); SendWidgetsToBottom(); };
+            _widgetsRect = new PixelRect(_monitor.X + (int)(24 * ws), _monitor.Y + (int)((MenuBarView.BarHeight + 18) * ws),
+                (int)Math.Ceiling(WidgetBoard.BoardWidth * ws) + 2, (int)Math.Ceiling(widgets.Height * ws) + 2);
+            window.PlaceAt(_widgetsRect);
+            // No compositor blur here: on some PCs it ignores the window's shape and frosts the whole rectangle.
+            window.Opened += (_, _) => { window.EnsurePlacement(_widgetsRect); window.SetShape(widgets.TileShapes); SendWidgetsToBottom(); };
             widgets.ShapeChanged += shapes => Dispatcher.UIThread.Post(() => window.SetShape(shapes));
             widgets.WidgetMenuRequested += (kind, rect) =>
             {
@@ -151,6 +159,37 @@ public sealed class ShellHost : IShellCommands, IDisposable
     }
 
     private static Native.RECT ToRect(PixelRect r) => new(r.X, r.Y, r.Right, r.Bottom);
+
+    /// <summary>
+    /// The dock window's rectangle in pixels, centred at the bottom of the monitor. At rest it is exactly the shelf;
+    /// expanded, it adds headroom for magnified icons and the hover label.
+    /// </summary>
+    private PixelRect DockRect(bool expanded)
+    {
+        double s = _dockWindow.Scale;
+        double w = _dock.RestingShelfWidth + (expanded ? 2 * _dock.IconSize * _dock.MaxScale : 0);
+        double h = expanded ? _dock.RequiredHeight : _dock.ShelfHeightAtRest + DockControl.BottomMargin;
+        int pw = Math.Min(_monitor.Width, (int)Math.Ceiling(w * s)), ph = (int)Math.Ceiling(h * s);
+        return new PixelRect(_monitor.X + (_monitor.Width - pw) / 2, _monitor.Bottom - ph, pw, ph);
+    }
+
+    private void UpdateDockWindow(PixelRect rest, PixelPoint pointer)
+    {
+        // Fully slid away: hide the window outright so nothing at the bottom edge is blocked.
+        if (_dock.HiddenTarget == 1 && _dock.Hidden > 0.98)
+        {
+            if (_dockWindow.IsVisible) _dockWindow.Hide();
+            return;
+        }
+        var expandedRect = DockRect(expanded: true);
+        bool expand = _dock.Hidden < 0.5 &&
+                      (rest.Contains(pointer) || (_dockExpanded && expandedRect.Contains(pointer)) || _dock.IsMagnified || _popupIsDockMenu);
+        var want = expand ? expandedRect : rest;
+        if (want == _dockRect) return;
+        _dockRect = want;
+        _dockExpanded = expand;
+        _dockWindow.EnsurePlacement(want);
+    }
 
     /// <summary>Widgets live on the desktop layer: keep them beneath every app window.</summary>
     private void SendWidgetsToBottom()
@@ -206,17 +245,28 @@ public sealed class ShellHost : IShellCommands, IDisposable
         double s = _dockWindow.Scale;
 
         // Dock: the area it occupies when shown, so "does a window overlap it" is stable while it is hidden.
-        double restingHeight = (_dock.IconSize + DockControl.Padding * 2 + DockControl.BottomMargin) * s;
-        var shelf = _dock.ShelfRect;
-        var dockArea = new Rect(_monitor.X + shelf.X * s, _monitor.Bottom - restingHeight, shelf.Width * s, restingHeight);
+        var rest = DockRect(expanded: false);
+        var dockArea = new Rect(rest.X, rest.Y, rest.Width, rest.Height);
         bool launchpadOpen = _popup?.Content is LaunchpadView;
         bool dockWantsHide = !launchpadOpen && VisibilityRules.DockWantsHide(_settings.Dock, fg, dockArea);
-        _dockReveal.Update(now, dockWantsHide, onMonitor && pointer.Y >= _monitor.Bottom - 2, _dock.IsEngaged || _popupIsDockMenu);
+        _dockReveal.Update(now, dockWantsHide, onMonitor && pointer.Y >= _monitor.Bottom - 2,
+            _dock.IsEngaged || _popupIsDockMenu || rest.Contains(pointer));
         double dockTarget = _dockReveal.Visible ? 0 : 1;
         if (_dock.HiddenTarget != dockTarget)
         {
             _dock.HiddenTarget = dockTarget;
+            if (dockTarget == 0 && !_dockWindow.IsVisible) _dockWindow.Show();
             _dock.Items = _dock.Items; // restart the animation loop
+        }
+        UpdateDockWindow(rest, pointer);
+
+        // Windows sometimes nudges borderless windows (e.g. when the menu bar's app-bar changes the work area).
+        if (++_placementPoll % 30 == 0)
+        {
+            _dockWindow.EnsurePlacement(_dockRect);
+            _widgetsWindow?.EnsurePlacement(_widgetsRect);
+            if (_menuOffset == 0 && _menuReveal.Visible)
+                _menuWindow.EnsurePlacement(new PixelRect(_monitor.X, _monitor.Y, _monitor.Width, (int)Math.Ceiling(MenuBarView.BarHeight * _menuWindow.Scale)));
         }
 
         // Menu bar: slides up out of the way in fullscreen, drops back when the pointer touches the top edge.
@@ -390,7 +440,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         window.Deactivated += (_, _) => { if (_popup == window) ClosePopup(); };
         window.Opened += (_, _) =>
         {
-            window.EnableBlur();
+            window.EnableBlur(roundCorners: true);
             window.Activate();
             if (content is SpotlightView sv) sv.FocusInput();
             else if (content is LaunchpadView lv) lv.FocusSearch();

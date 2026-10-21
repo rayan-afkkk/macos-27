@@ -136,6 +136,13 @@ public sealed class DockControl : Control
 
     public Rect ShelfRect => ComputeLayout().Shelf;
 
+    /// <summary>Width of the shelf with no magnification — the dock's footprint at rest.</summary>
+    public double RestingShelfWidth => RestingRow().Width + Padding * 2;
+    public double ShelfHeightAtRest => ShelfHeight;
+
+    /// <summary>True while any icon is still scaled up (including while the wave settles after the pointer leaves).</summary>
+    public bool IsMagnified => _scale.Any(s => s > 1.001);
+
     /// <summary>Height the control needs: the tallest magnified icon plus room for the hover label.</summary>
     public double RequiredHeight => BottomMargin + Padding + IconSize * Math.Max(1, MaxScale) + IconSize * 0.55 + 44;
 

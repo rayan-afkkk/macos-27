@@ -36,8 +36,25 @@ public class ShellWindow : Window
 
     public nint Handle => TryGetPlatformHandle()?.Handle ?? 0;
 
-    /// <summary>DPI scale of the screen this window is (or will be) on.</summary>
-    public double Scale => Screens.ScreenFromPoint(Position)?.Scaling ?? Screens.Primary?.Scaling ?? 1;
+    /// <summary>DPI scale of the screen this window is (or will be) on. Once shown, the window's real render scale wins.</summary>
+    public double Scale => IsVisible && RenderScaling > 0 ? RenderScaling : Screens.ScreenFromPoint(Position)?.Scaling ?? Screens.Primary?.Scaling ?? 1;
+
+    /// <summary>
+    /// Makes the window's client area occupy exactly <paramref name="desired"/> (physical pixels), using Win32 directly.
+    /// Windows (and the app-bar work-area change) can nudge a borderless window after it is shown; this puts it back.
+    /// Cheap to call repeatedly — it only moves the window when something is off.
+    /// </summary>
+    public void EnsurePlacement(PixelRect desired)
+    {
+        if (!OperatingSystem.IsWindows() || Handle == 0) return;
+        var origin = new Native.POINT();
+        if (!Native.ClientToScreen(Handle, ref origin) || !Native.GetClientRect(Handle, out var client) || !Native.GetWindowRect(Handle, out var outer)) return;
+        int dx = desired.X - origin.X, dy = desired.Y - origin.Y;
+        int dw = desired.Width - client.Width, dh = desired.Height - client.Height;
+        if (dx == 0 && dy == 0 && dw == 0 && dh == 0) return;
+        Native.SetWindowPos(Handle, 0, outer.Left + dx, outer.Top + dy, outer.Width + dw, outer.Height + dh,
+            Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
+    }
 
     /// <summary>Positions the window in physical pixels.</summary>
     public void PlaceAt(PixelRect r)
@@ -76,7 +93,7 @@ public class ShellWindow : Window
     }
 
     /// <summary>Compositor blur behind the window (Windows 10 and 11). The glass tint is painted by the controls.</summary>
-    public void EnableBlur()
+    public void EnableBlur(bool roundCorners = false)
     {
         if (!OperatingSystem.IsWindows() || Handle == 0) return;
         var accent = new Native.ACCENT_POLICY { AccentState = 3 /* ACCENT_ENABLE_BLURBEHIND */ };
@@ -92,8 +109,8 @@ public class ShellWindow : Window
         {
             Marshal.FreeHGlobal(ptr);
         }
-        // Windows 11 would otherwise round and shadow the rectangular window behind our own shapes.
-        int pref = Native.DWMWCP_DONOTROUND;
+        // Windows 11 rounding: on for popovers (matches their own corners), off for everything else.
+        int pref = roundCorners ? Native.DWMWCP_ROUND : Native.DWMWCP_DONOTROUND;
         Native.DwmSetWindowAttribute(Handle, Native.DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
     }
 

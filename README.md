@@ -95,9 +95,12 @@ src/Orchard
 
 * **Built with** C# / .NET 8 and [Avalonia](https://avaloniaui.net/) using Skia GPU rendering. Shell surfaces are
   custom drawn, so each frame of the dock's magnification wave is one cheap render pass.
-* **Click-through and blur:** every shell window is clipped to the shapes it actually paints (`SetWindowRgn`). Outside
-  the shelf and the magnified icons, clicks go to the window underneath, and the compositor blur (`ACCENT_ENABLE_BLURBEHIND`)
-  covers exactly the glass.
+* **Staying out of the way:** the dock window is exactly the size of the shelf, and only grows to make room for
+  magnified icons while you hover it. When it slides away it is hidden entirely, so it never blocks clicks at the
+  bottom of the screen. Window positions are re-checked every second, because Windows can nudge borderless windows
+  when the menu bar reserves its strip.
+* **Glass:** popovers get compositor blur (`ACCENT_ENABLE_BLURBEHIND`). The dock and widgets use a denser frosted
+  tint instead, because on some PCs the compositor blurs the whole window rectangle rather than the rounded shapes.
 * **Window tracking** uses `SetWinEventHook` (foreground, move/resize, create/destroy, cloak), applies Alt+Tab's
   filtering rules, and unwraps UWP windows from `ApplicationFrameHost`.
 * **Genie:** the window is captured with `PrintWindow(PW_RENDERFULLCONTENT)` and Windows' own minimize animation is

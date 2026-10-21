@@ -198,6 +198,8 @@ internal static class Native
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(nint hWnd, int cmd);
     [DllImport("user32.dll")] public static extern bool PostMessageW(nint hWnd, uint msg, nint wParam, nint lParam);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(nint hWnd, out RECT rect);
+    [DllImport("user32.dll")] public static extern bool GetClientRect(nint hWnd, out RECT rect);
+    [DllImport("user32.dll")] public static extern bool ClientToScreen(nint hWnd, ref POINT point);
     [DllImport("user32.dll")] public static extern nint GetWindow(nint hWnd, uint cmd);
     [DllImport("user32.dll")] public static extern nint GetAncestor(nint hWnd, uint flags);
     [DllImport("user32.dll")] public static extern nint GetShellWindow();
