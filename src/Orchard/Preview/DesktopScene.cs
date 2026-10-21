@@ -40,6 +40,7 @@ public sealed class DesktopScene : Canvas, IShellCommands
     public DesktopScene(PixelSize screen, OrchardSettings settings, double renderScale = 1)
     {
         _settings = settings;
+        Glass.ClearChrome = settings.Glass == GlassStyle.Clear;
         ScreenWidth = screen.Width;
         ScreenHeight = screen.Height;
         Width = ScreenWidth;

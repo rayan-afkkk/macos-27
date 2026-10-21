@@ -50,6 +50,9 @@ public static class Palette
     public static Color GlassRimBottom => Dark ? Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF);
     public static Color GlassOutline => Dark ? Color.FromArgb(0x99, 0x00, 0x00, 0x00) : Color.FromArgb(0x1C, 0x00, 0x00, 0x00);
 
+    /// <summary>Clear glass (dock and menu bar in the "Clear" style): barely tinted, nothing blurred behind it.</summary>
+    public static Color ClearTint => Dark ? Color.FromArgb(0x3C, 0x00, 0x00, 0x00) : Color.FromArgb(0x16, 0xFF, 0xFF, 0xFF);
+
     /// <summary>Frostier glass for panels that carry text over the wallpaper (widgets).</summary>
     public static Color GlassTintPanel => Dark ? Color.FromArgb(0xC8, 0x14, 0x14, 0x16) : Color.FromArgb(Solid ? (byte)0xD6 : (byte)0xA8, 0xF7, 0xF7, 0xF9);
 

@@ -285,6 +285,7 @@ public class SettingsTests
         Assert.Equal(DockVisibility.HideWhenOverlapped, s.Dock);
         Assert.Equal(MenuBarVisibility.HideWhenMaximized, s.MenuBar);
         Assert.False(s.TrafficLights);
+        Assert.Equal(GlassStyle.Clear, s.Glass);
         Assert.True(s.HideWindowsTaskbar);
     }
 }

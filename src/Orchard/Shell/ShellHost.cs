@@ -65,6 +65,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _monitor = platform.PrimaryMonitor;
         // Frosted glass from the user's own wallpaper; if it can't be read, fall back to denser solid glass.
         LoadWallpaperBackdrop();
+        Glass.ClearChrome = settings.Glass == GlassStyle.Clear;
         Palette.Dark = settings.Appearance switch { Appearance.Dark => true, Appearance.Light => false, _ => platform.DarkMode };
         MenuCatalog.WindowTitle = Native.GetText;
 

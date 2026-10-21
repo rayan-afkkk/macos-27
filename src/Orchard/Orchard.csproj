@@ -14,7 +14,7 @@
     <Description>A macOS-style desktop shell for Windows</Description>
     <AssemblyName>Orchard</AssemblyName>
     <RootNamespace>Orchard</RootNamespace>
-    <Version>0.3.4</Version>
+    <Version>0.3.5</Version>
   </PropertyGroup>
 
   <ItemGroup>

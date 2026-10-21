@@ -24,10 +24,25 @@ public static class Glass
     /// behind our shaped windows. Null when the wallpaper can't be read (then the tint is painted opaque instead).
     /// </summary>
     public static Bitmap? DesktopBackdrop { get; set; }
+
+    /// <summary>
+    /// "Clear" glass for the dock and menu bar: no blur and almost no tint, so whatever is behind shows through
+    /// sharply; the edge highlights alone make it read as a sheet of glass (macOS's clear Liquid Glass look).
+    /// </summary>
+    public static bool ClearChrome { get; set; } = true;
+
+    /// <summary>The tint the dock / menu bar actually use, for contrast decisions.</summary>
+    public static Color ChromeTint => ClearChrome ? Palette.ClearTint : Palette.GlassTint;
     public static PixelRect DesktopBackdropMonitor { get; set; }
 
-    public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true, bool panel = false)
+    public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true, bool panel = false, bool chrome = false)
     {
+        if (chrome && ClearChrome)
+        {
+            DrawClear(ctx, shape);
+            return;
+        }
+
         // No soft shadow on the real desktop: shell windows clip to their own shapes, so it would barely show, and
         // a large blurred shadow redrawn every animation frame is the single most expensive thing glass can do.
         if (shadow && !Palette.Solid)
@@ -115,6 +130,44 @@ public static class Glass
         double wall = sum / (buffer.Length / 4);
         double a = tint.A / 255.0, tintLum = (0.2126 * tint.R + 0.7152 * tint.G + 0.0722 * tint.B) / 255;
         return wall * (1 - a) + tintLum * a;
+    }
+
+    private static void DrawClear(DrawingContext ctx, RoundedRect shape)
+    {
+        ctx.DrawRectangle(Palette.Brush(Palette.ClearTint), null, shape);
+        var r = shape.Rect;
+        using (ctx.PushClip(shape))
+        {
+            // A light sheen across the top third, like light catching the upper surface.
+            ctx.DrawRectangle(new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint = new RelativePoint(0, 1, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(Palette.Dark ? (byte)0x18 : (byte)0x2A, 255, 255, 255), 0),
+                    new GradientStop(Color.FromArgb(0, 255, 255, 255), 0.4),
+                },
+            }, null, r);
+            // Soft brightening just inside the edge — the "thick glass" refraction cue.
+            ctx.DrawRectangle(null, new Pen(Palette.Brush(Color.FromArgb(Palette.Dark ? (byte)0x10 : (byte)0x1C, 255, 255, 255)), 5), shape.Deflate(2.5, 2.5));
+        }
+        // Thin dark outline for definition on bright backgrounds, then a specular rim: bright at the top-left and
+        // bottom-right, fading in between, as light wraps around a rounded glass edge.
+        ctx.DrawRectangle(null, new Pen(Palette.Brush(Color.FromArgb(Palette.Dark ? (byte)0x70 : (byte)0x26, 0, 0, 0)), 0.75), shape.Inflate(0.4, 0.4));
+        var rim = new LinearGradientBrush
+        {
+            StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+            EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+            GradientStops =
+            {
+                new GradientStop(Color.FromArgb(Palette.Dark ? (byte)0x90 : (byte)0xF0, 255, 255, 255), 0),
+                new GradientStop(Color.FromArgb(Palette.Dark ? (byte)0x18 : (byte)0x40, 255, 255, 255), 0.45),
+                new GradientStop(Color.FromArgb(Palette.Dark ? (byte)0x18 : (byte)0x40, 255, 255, 255), 0.7),
+                new GradientStop(Color.FromArgb(Palette.Dark ? (byte)0x60 : (byte)0xB0, 255, 255, 255), 1),
+            },
+        };
+        ctx.DrawRectangle(null, new Pen(rim, 1.2), shape.Deflate(0.6, 0.6));
     }
 
     private static void DrawSurface(DrawingContext ctx, RoundedRect shape, Color tint)

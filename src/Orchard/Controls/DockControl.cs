@@ -277,11 +277,11 @@ public sealed class DockControl : Control
         var shape = new List<RoundedRect>();
 
         var shelf = new RoundedRect(layout.Shelf, Math.Min(22, ShelfHeight * 0.36));
-        Glass.Draw(ctx, this, shelf);
+        Glass.Draw(ctx, this, shelf, chrome: true);
         shape.Add(shelf);
 
         // Translucent light glass over a dark wallpaper reads dark: switch the dots and dividers to white, like macOS.
-        bool darkBehind = Palette.Dark || Glass.PerceivedLuminance(this, layout.Shelf, Palette.GlassTint) is < 0.5;
+        bool darkBehind = Palette.Dark || Glass.PerceivedLuminance(this, layout.Shelf, Glass.ChromeTint) is < 0.5;
         var separatorColor = darkBehind ? Color.FromArgb(0x40, 255, 255, 255) : Palette.Separator;
         var dotColor = darkBehind ? Color.FromArgb(0xE0, 255, 255, 255) : Color.FromArgb(0xC0, 0x1D, 0x1D, 0x1F);
 

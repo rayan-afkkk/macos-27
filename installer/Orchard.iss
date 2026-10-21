@@ -4,7 +4,7 @@
 
 #define AppName "Orchard"
 #ifndef AppVersion
-  #define AppVersion "0.3.4"
+  #define AppVersion "0.3.5"
 #endif
 #ifndef SourceExe
   #define SourceExe "..\publish\Orchard.exe"

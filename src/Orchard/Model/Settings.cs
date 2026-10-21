@@ -34,6 +34,14 @@ public enum Appearance
     Dark,
 }
 
+public enum GlassStyle
+{
+    /// <summary>See-through: no blur, faint tint, bright edges (default for the dock and menu bar).</summary>
+    Clear,
+    /// <summary>Frosted: the wallpaper behind is blurred and tinted.</summary>
+    Frosted,
+}
+
 public enum WidgetKind { Clock, Calendar, Weather, Battery, System }
 
 public sealed record PinnedApp(string Name, string Target, string? Icon = null, string? Arguments = null);
@@ -62,6 +70,8 @@ public sealed class OrchardSettings
     /// <summary>Hide the Windows taskbar while Orchard runs. It is always restored on exit, even after a crash.</summary>
     public bool HideWindowsTaskbar { get; set; } = true;
     public Appearance Appearance { get; set; } = Appearance.Auto;
+    /// <summary>Dock and menu bar material. Menus, Control Center and widgets are always frosted so text stays readable.</summary>
+    public GlassStyle Glass { get; set; } = GlassStyle.Clear;
 
     public bool ShowWidgets { get; set; } = true;
     public List<WidgetKind> Widgets { get; set; } = [WidgetKind.Clock, WidgetKind.Calendar, WidgetKind.Weather, WidgetKind.Battery, WidgetKind.System];
