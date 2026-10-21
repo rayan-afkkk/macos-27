@@ -214,6 +214,9 @@ internal static class Native
     [DllImport("user32.dll")] public static extern int SetWindowRgn(nint hWnd, nint rgn, bool redraw);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(nint hWnd, nint after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool SystemParametersInfoW(uint action, uint param, ref ANIMATIONINFO info, uint winIni);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SystemParametersInfoW")]
+    public static extern bool SystemParametersInfoString(uint action, uint param, StringBuilder value, uint winIni);
+    public const uint SPI_GETDESKWALLPAPER = 0x0073;
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(nint hWnd, int id, uint mods, uint vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(nint hWnd, int id);
     [DllImport("user32.dll")] public static extern uint SendInput(uint count, INPUT[] inputs, int size);

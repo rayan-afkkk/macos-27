@@ -7,6 +7,7 @@ using Orchard;
 using Orchard.Controls;
 using Orchard.Model;
 using Orchard.Preview;
+using Orchard.Rendering;
 using Orchard.Theme;
 
 // Renders Orchard's real UI controls headlessly (Skia, no window system needed) into PNGs under docs/screenshots.
@@ -106,6 +107,19 @@ Shot("13-dark-control-center", scene =>
 Palette.Solid = false;
 
 Shot("14-dark-spotlight", scene => scene.OpenSpotlightView("ca"), dark: true);
+
+// The real-desktop glass path: backdrop sampled in screen space from a blurred wallpaper (what Windows users get).
+Shot("16-desktop-glass", scene =>
+{
+    var wall = new WallpaperArt { Dark = true }.Render(new PixelSize(360, 225), 0.25);
+    Glass.PreviewBackdrop = null;
+    Glass.DesktopBackdrop = Orchard.Rendering.Blur.Apply(wall, 5);
+    Glass.DesktopBackdropMonitor = new PixelRect(0, 0, 1440, 900);
+    scene.MenuBar.Solid = true;
+    scene.Dock.SimulatePointer(DockX(scene, "maps"), Find(scene, "maps"));
+    scene.OpenControlCenter();
+}, dark: true);
+Glass.DesktopBackdrop = null;
 
 TrafficLightCloseup();
 SettingsShot();

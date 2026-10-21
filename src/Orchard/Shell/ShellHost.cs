@@ -63,7 +63,8 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _settings = settings;
         _platform = platform;
         _monitor = platform.PrimaryMonitor;
-        Palette.Solid = true;
+        // Frosted glass from the user's own wallpaper; if it can't be read, fall back to denser solid glass.
+        LoadWallpaperBackdrop();
         Palette.Dark = settings.Appearance switch { Appearance.Dark => true, Appearance.Light => false, _ => platform.DarkMode };
         MenuCatalog.WindowTitle = Native.GetText;
 
@@ -170,6 +171,17 @@ public sealed class ShellHost : IShellCommands, IDisposable
 
     private static Native.RECT ToRect(PixelRect r) => new(r.X, r.Y, r.Right, r.Bottom);
 
+    private string _wallpaperSignature = "";
+
+    private void LoadWallpaperBackdrop()
+    {
+        _wallpaperSignature = WallpaperBackdrop.Signature();
+        // The previous bitmap is left to the GC: a frame already queued for the compositor may still be using it.
+        Glass.DesktopBackdrop = WallpaperBackdrop.Load(_monitor);
+        Glass.DesktopBackdropMonitor = _monitor;
+        Palette.Solid = Glass.DesktopBackdrop == null;
+    }
+
     /// <summary>
     /// The dock's rectangle in pixels, centred at the bottom of the monitor: the shelf alone (for "does a window
     /// overlap the dock"), or with headroom for magnified icons and the hover label (the dock window's size).
@@ -244,6 +256,12 @@ public sealed class ShellHost : IShellCommands, IDisposable
 
         // Appearance "Auto" follows the Windows light/dark switch (checked every ~2 s; it's a registry read).
         if (_settings.Appearance == Appearance.Auto && ++_appearancePoll % 60 == 0) Palette.Dark = _platform.DarkMode;
+        // New wallpaper? Rebuild the frosted backdrop (checked every ~4 s; it's a registry read and a file timestamp).
+        if (_appearancePoll % 120 == 0 && WallpaperBackdrop.Signature() != _wallpaperSignature)
+        {
+            LoadWallpaperBackdrop();
+            RepaintAll();
+        }
 
         var fg = _platform.ForegroundState(_monitor);
         var pointer = _platform.Pointer;
@@ -451,7 +469,6 @@ public sealed class ShellHost : IShellCommands, IDisposable
         window.Opened += (_, _) =>
         {
             FadeIn(window);
-            window.EnableBlur(roundCorners: true);
             window.Activate();
             if (content is SpotlightView sv) sv.FocusInput();
             else if (content is LaunchpadView lv) lv.FocusSearch();

@@ -117,8 +117,12 @@ public sealed class MenuBarView : Control
         Color ink, shadow, highlight;
         if (Solid)
         {
-            // Solid frosted bar: on a real desktop windows can be dragged up under the bar, so it must be opaque.
-            ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0xF4, 0x1A, 0x1A, 0x1D) : Color.FromArgb(0xF0, 0xF4, 0xF4, 0xF6)), null, new Rect(Bounds.Size));
+            // On the real desktop windows can be dragged up under the bar, so it must not be see-through: frosted
+            // wallpaper when we have it, otherwise an opaque bar.
+            if (Glass.DesktopBackdrop != null)
+                Glass.Draw(ctx, this, new RoundedRect(new Rect(Bounds.Size), 0), strong: false, shadow: false);
+            else
+                ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0xF4, 0x1A, 0x1A, 0x1D) : Color.FromArgb(0xF0, 0xF4, 0xF4, 0xF6)), null, new Rect(Bounds.Size));
             ctx.DrawLine(new Pen(Palette.Brush(Palette.Dark ? Color.FromArgb(0x60, 0, 0, 0) : Color.FromArgb(0x26, 0, 0, 0)), 1),
                 new Point(0, Bounds.Height - 0.5), new Point(Bounds.Width, Bounds.Height - 0.5));
             ink = Palette.Dark ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);

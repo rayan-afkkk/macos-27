@@ -121,8 +121,10 @@ src/Orchard
   magnified icons while you hover it. When it slides away it is hidden entirely, so it never blocks clicks at the
   bottom of the screen. Window positions are re-checked every second, because Windows can nudge borderless windows
   when the menu bar reserves its strip.
-* **Glass:** popovers get compositor blur (`ACCENT_ENABLE_BLURBEHIND`). The dock and widgets use a denser frosted
-  tint instead, because on some PCs the compositor blurs the whole window rectangle rather than the rounded shapes.
+* **Glass:** Windows can't blur behind shaped windows reliably, so Orchard does it itself. It reads your current
+  wallpaper (including how Windows fills or stretches it, or your solid background colour), shrinks and blurs it,
+  and every surface paints the piece that lies behind it. The result looks the same in light and dark mode, and it
+  updates within a few seconds when you change wallpaper.
 * **Window tracking** uses `SetWinEventHook` (foreground, move/resize, create/destroy, cloak), applies Alt+Tab's
   filtering rules, and unwraps UWP windows from `ApplicationFrameHost`.
 * **Genie:** the window is captured with `PrintWindow(PW_RENDERFULLCONTENT)` and Windows' own minimize animation is

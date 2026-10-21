@@ -18,6 +18,14 @@ public static class Glass
     public static Bitmap? PreviewBackdrop { get; set; }
     public static double PreviewBackdropScale { get; set; } = 1;
 
+    /// <summary>
+    /// Real desktop: a blurred copy of the user's wallpaper covering <see cref="DesktopBackdropMonitor"/> (screen pixels).
+    /// Each surface paints the piece of it that lies behind it, so glass looks frosted even though Windows can't blur
+    /// behind our shaped windows. Null when the wallpaper can't be read (then the tint is painted opaque instead).
+    /// </summary>
+    public static Bitmap? DesktopBackdrop { get; set; }
+    public static PixelRect DesktopBackdropMonitor { get; set; }
+
     public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true)
     {
         // No soft shadow on the real desktop: shell windows clip to their own shapes, so it would barely show, and
@@ -28,7 +36,9 @@ public static class Glass
             ctx.DrawRectangle(Brushes.Transparent, null, shape, shadows);
         }
 
-        if (PreviewBackdrop is { } backdrop && owner.GetVisualRoot() is Visual root &&
+        if (DesktopBackdrop is { } wallpaper)
+            DrawDesktopBackdrop(ctx, owner, shape, wallpaper);
+        else if (PreviewBackdrop is { } backdrop && owner.GetVisualRoot() is Visual root &&
             owner.TranslatePoint(shape.Rect.TopLeft, root) is { } origin)
         {
             using (ctx.PushClip(shape))
@@ -45,6 +55,30 @@ public static class Glass
         }
 
         var tint = strong ? Palette.GlassTintStrong : Palette.GlassTint;
+        DrawSurface(ctx, shape, tint);
+    }
+
+    private static void DrawDesktopBackdrop(DrawingContext ctx, Visual owner, RoundedRect shape, Bitmap wallpaper)
+    {
+        if (Avalonia.Controls.TopLevel.GetTopLevel(owner) == null) return;
+        var tl = owner.PointToScreen(shape.Rect.TopLeft);
+        var br = owner.PointToScreen(shape.Rect.BottomRight);
+        var mon = DesktopBackdropMonitor;
+        if (br.X <= tl.X || br.Y <= tl.Y || mon.Width <= 0) return;
+        double kx = wallpaper.PixelSize.Width / (double)mon.Width, ky = wallpaper.PixelSize.Height / (double)mon.Height;
+        var full = new Rect((tl.X - mon.X) * kx, (tl.Y - mon.Y) * ky, (br.X - tl.X) * kx, (br.Y - tl.Y) * ky);
+        var src = full.Intersect(new Rect(0, 0, wallpaper.PixelSize.Width, wallpaper.PixelSize.Height));
+        if (src.Width <= 0 || src.Height <= 0) return;
+        // Map the visible part of the source back onto the shape (surfaces sliding off-screen are partly outside).
+        double sx = shape.Rect.Width / full.Width, sy = shape.Rect.Height / full.Height;
+        var dst = new Rect(shape.Rect.X + (src.X - full.X) * sx, shape.Rect.Y + (src.Y - full.Y) * sy, src.Width * sx, src.Height * sy);
+        using (ctx.PushClip(shape))
+        using (ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality }))
+            ctx.DrawImage(wallpaper, src, dst);
+    }
+
+    private static void DrawSurface(DrawingContext ctx, RoundedRect shape, Color tint)
+    {
         ctx.DrawRectangle(Palette.Brush(tint), null, shape);
 
         // Specular sheen: brighter along the top, the cue that makes it read as glass rather than frosted plastic.
