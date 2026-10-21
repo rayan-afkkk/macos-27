@@ -102,16 +102,39 @@ public sealed class WidgetBoard : Control
             if (rect.Contains(p)) { WidgetMenuRequested?.Invoke(kind, rect); e.Handled = true; return; }
     }
 
+    // Ink for the widget being drawn: dark on bright glass, white on dark glass (dark mode, or clear glass over a
+    // dark wallpaper) — the same rule the dock and menu bar follow.
+    private Color _ink, _inkSecondary, _track, _face;
+
+    private void ChooseInk(Rect r)
+    {
+        var tint = Glass.ClearChrome ? Palette.ClearTint : Palette.GlassTintPanel;
+        bool dark = Palette.Dark || Glass.PerceivedLuminance(this, r, tint) is < 0.5;
+        _ink = dark ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);
+        _inkSecondary = dark ? Color.FromArgb(0xB0, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x99, 0x3C, 0x3C, 0x43);
+        _track = dark ? Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x24, 0x00, 0x00, 0x00);
+        _face = Glass.ClearChrome
+            ? (dark ? Color.FromArgb(0x26, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF))
+            : (Palette.Dark ? Color.FromRgb(0x1C, 0x1C, 0x1E) : Colors.White);
+    }
+
     public override void Render(DrawingContext ctx)
     {
         var now = FixedNow ?? DateTime.Now;
         foreach (var (kind, r) in _layout)
         {
             var shape = new RoundedRect(r, Radius);
-            if (kind == WidgetKind.Weather) DrawWeather(ctx, r, shape, now);
+            ChooseInk(r);
+            if (kind == WidgetKind.Weather && !Glass.ClearChrome) DrawWeather(ctx, r, shape, now);
+            else if (kind == WidgetKind.Weather)
+            {
+                Glass.Draw(ctx, this, shape, shadow: false, chrome: true);
+                DrawWeatherContent(ctx, r, now);
+            }
             else
             {
-                Glass.Draw(ctx, this, shape, strong: false, shadow: false, panel: true);
+                // Same material as the dock: clear glass by default, frosted panel otherwise.
+                Glass.Draw(ctx, this, shape, strong: false, shadow: false, panel: true, chrome: true);
                 switch (kind)
                 {
                     case WidgetKind.Clock: DrawClock(ctx, r, now); break;
@@ -125,12 +148,12 @@ public sealed class WidgetBoard : Control
 
     // ---- clock ---------------------------------------------------------------------------------
 
-    private static void DrawClock(DrawingContext ctx, Rect r, DateTime now)
+    private void DrawClock(DrawingContext ctx, Rect r, DateTime now)
     {
         var c = new Point(r.Center.X, r.Center.Y);
         double rad = r.Width / 2 - 14;
-        var face = Palette.Dark ? Color.FromRgb(0x1C, 0x1C, 0x1E) : Colors.White;
-        var ink = Palette.Dark ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);
+        var face = _face;
+        var ink = _ink;
         ctx.DrawEllipse(Palette.Brush(face), null, c, rad, rad);
 
         for (int h = 1; h <= 12; h++)
@@ -154,7 +177,7 @@ public sealed class WidgetBoard : Control
 
     // ---- calendar ------------------------------------------------------------------------------
 
-    private static void DrawCalendar(DrawingContext ctx, Rect r, DateTime now)
+    private void DrawCalendar(DrawingContext ctx, Rect r, DateTime now)
     {
         var red = Color.FromRgb(0xFF, 0x45, 0x3A);
         ctx.DrawText(Shapes.Text(now.ToString("MMMM", CultureInfo.CurrentCulture).ToUpperInvariant(), 11, red, FontWeight.Bold), new Point(r.X + 16, r.Y + 14));
@@ -165,7 +188,7 @@ public sealed class WidgetBoard : Control
         string[] heads = ["S", "M", "T", "W", "T", "F", "S"];
         for (int i = 0; i < 7; i++)
         {
-            var h = Shapes.Text(heads[i], 9.5, Palette.TextSecondary, FontWeight.SemiBold);
+            var h = Shapes.Text(heads[i], 9.5, _inkSecondary, FontWeight.SemiBold);
             ctx.DrawText(h, new Point(r.X + 12 + cw * (i + 0.5) - h.Width / 2, top));
         }
         for (int d = 1; d <= days; d++)
@@ -174,7 +197,7 @@ public sealed class WidgetBoard : Control
             double x = r.X + 12 + cw * (cell % 7 + 0.5), y = top + 16 + cell / 7 * ch;
             bool today = d == now.Day;
             if (today) ctx.DrawEllipse(Palette.Brush(red), null, new Point(x, y + 7), 8.5, 8.5);
-            var t = Shapes.Text(d.ToString(CultureInfo.InvariantCulture), 10.5, today ? Colors.White : Palette.Text, today ? FontWeight.Bold : FontWeight.Medium);
+            var t = Shapes.Text(d.ToString(CultureInfo.InvariantCulture), 10.5, today ? Colors.White : _ink, today ? FontWeight.Bold : FontWeight.Medium);
             ctx.DrawText(t, new Point(x - t.Width / 2, y + 7 - t.Height / 2));
         }
     }
@@ -190,9 +213,16 @@ public sealed class WidgetBoard : Control
             : Shapes.Vertical(Color.FromRgb(0x2D, 0x7B, 0xE0), Color.FromRgb(0x6C, 0xB4, 0xF2));
         ctx.DrawRectangle(sky, null, shape);
         ctx.DrawRectangle(null, new Pen(Palette.Brush(Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF)), 1), shape.Deflate(0.5, 0.5));
+        _ink = Colors.White;
+        _inkSecondary = Color.FromArgb(0xC0, 0xFF, 0xFF, 0xFF);
+        DrawWeatherContent(ctx, r, now);
+    }
 
-        var white = Colors.White;
-        var dim = Color.FromArgb(0xC0, 0xFF, 0xFF, 0xFF);
+    private void DrawWeatherContent(DrawingContext ctx, Rect r, DateTime now)
+    {
+        var w = _weather?.Current ?? SampleWeather;
+        var white = _ink;
+        var dim = _inkSecondary;
         if (w == null)
         {
             ctx.DrawText(Shapes.Text("Weather", 15, white, FontWeight.SemiBold), new Point(r.X + 18, r.Y + 16));
@@ -236,9 +266,9 @@ public sealed class WidgetBoard : Control
 
     // ---- rings (battery, system) ---------------------------------------------------------------
 
-    private static void Ring(DrawingContext ctx, Point c, double radius, double value, Color color, double thickness = 8)
+    private void Ring(DrawingContext ctx, Point c, double radius, double value, Color color, double thickness = 8)
     {
-        ctx.DrawEllipse(null, new Pen(Palette.Brush(Palette.Track), thickness), c, radius, radius);
+        ctx.DrawEllipse(null, new Pen(Palette.Brush(_track), thickness), c, radius, radius);
         value = Math.Clamp(value, 0, 1);
         if (value <= 0) return;
         if (value >= 0.999) { ctx.DrawEllipse(null, new Pen(Palette.Brush(color), thickness), c, radius, radius); return; }
@@ -256,35 +286,35 @@ public sealed class WidgetBoard : Control
     private void DrawBattery(DrawingContext ctx, Rect r)
     {
         var b = _platform.Battery;
-        ctx.DrawText(Shapes.Text("Battery", 13, Palette.Text, FontWeight.SemiBold), new Point(r.X + 16, r.Y + 14));
+        ctx.DrawText(Shapes.Text("Battery", 13, _ink, FontWeight.SemiBold), new Point(r.X + 16, r.Y + 14));
         var c = new Point(r.Center.X, r.Y + 92);
         var green = Color.FromRgb(0x34, 0xC7, 0x59);
         if (b == null)
         {
             Ring(ctx, c, 40, 1, green);
-            Glyphs.Draw(ctx, Glyph.Power, new Rect(c.X - 14, c.Y - 14, 28, 28), Palette.Text, 2);
-            var t = Shapes.Text("Plugged in", 11, Palette.TextSecondary, FontWeight.Medium);
+            Glyphs.Draw(ctx, Glyph.Power, new Rect(c.X - 14, c.Y - 14, 28, 28), _ink, 2);
+            var t = Shapes.Text("Plugged in", 11, _inkSecondary, FontWeight.Medium);
             ctx.DrawText(t, new Point(c.X - t.Width / 2, r.Bottom - 22));
             return;
         }
         var color = b.Percent <= 20 ? Color.FromRgb(0xFF, 0x45, 0x3A) : green;
         Ring(ctx, c, 40, b.Percent / 100.0, color);
-        var pct = Shapes.Text($"{b.Percent}%", 20, Palette.Text, FontWeight.Bold);
+        var pct = Shapes.Text($"{b.Percent}%", 20, _ink, FontWeight.Bold);
         ctx.DrawText(pct, new Point(c.X - pct.Width / 2, c.Y - pct.Height / 2));
-        var state = Shapes.Text(b.Charging ? "Charging" : "This PC", 11, Palette.TextSecondary, FontWeight.Medium);
+        var state = Shapes.Text(b.Charging ? "Charging" : "This PC", 11, _inkSecondary, FontWeight.Medium);
         ctx.DrawText(state, new Point(c.X - state.Width / 2, r.Bottom - 22));
     }
 
     private void DrawSystem(DrawingContext ctx, Rect r)
     {
         var load = _load ?? _platform.Load;
-        ctx.DrawText(Shapes.Text("System", 13, Palette.Text, FontWeight.SemiBold), new Point(r.X + 16, r.Y + 14));
+        ctx.DrawText(Shapes.Text("System", 13, _ink, FontWeight.SemiBold), new Point(r.X + 16, r.Y + 14));
         var blue = Color.FromRgb(0x0A, 0x84, 0xFF);
         var purple = Color.FromRgb(0xBF, 0x5A, 0xF2);
         var c = new Point(r.Center.X, r.Y + 92);
         Ring(ctx, c, 44, load?.Cpu ?? 0, blue, 9);
         Ring(ctx, c, 30, load?.Memory ?? 0, purple, 9);
-        Glyphs.Draw(ctx, Glyph.Cpu, new Rect(c.X - 10, c.Y - 10, 20, 20), Palette.Text, 1.6);
+        Glyphs.Draw(ctx, Glyph.Cpu, new Rect(c.X - 10, c.Y - 10, 20, 20), _ink, 1.6);
 
         var cpu = Shapes.Text($"CPU {(load?.Cpu ?? 0) * 100:0}%", 10.5, blue, FontWeight.Bold);
         var mem = Shapes.Text($"RAM {(load?.Memory ?? 0) * 100:0}%", 10.5, purple, FontWeight.Bold);

@@ -132,6 +132,19 @@ public static class Glass
         return wall * (1 - a) + tintLum * a;
     }
 
+    /// <summary>
+    /// The menu bar: frosted wallpaper and the plain tint, with no rim or sheen — edge highlights look wrong
+    /// stretched across a long thin bar. A single hairline separates it from what is below.
+    /// </summary>
+    public static void DrawBar(DrawingContext ctx, Visual owner, Rect rect)
+    {
+        var shape = new RoundedRect(rect, 0);
+        if (DesktopBackdrop is { } wallpaper) DrawDesktopBackdrop(ctx, owner, shape, wallpaper);
+        ctx.DrawRectangle(Palette.Brush(Palette.GlassTint), null, rect);
+        ctx.DrawLine(new Pen(Palette.Brush(Color.FromArgb(Palette.Dark ? (byte)0x50 : (byte)0x22, 0, 0, 0)), 1),
+            new Point(rect.X, rect.Bottom - 0.5), new Point(rect.Right, rect.Bottom - 0.5));
+    }
+
     private static void DrawClear(DrawingContext ctx, RoundedRect shape)
     {
         ctx.DrawRectangle(Palette.Brush(Palette.ClearTint), null, shape);

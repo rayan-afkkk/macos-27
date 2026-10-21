@@ -40,7 +40,7 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 | **Control Center** | Real volume and laptop-brightness sliders, a real dark mode toggle, and Lock. Wi-Fi, Bluetooth, Airplane, Focus and Cast open the matching Settings page, because Windows doesn't let normal apps flip those radios. |
 | **Widgets** | Clock, calendar, weather, battery and system (CPU/RAM) widgets sit on the desktop beneath your windows. Weather comes from Open-Meteo (free, no account) once you set `WeatherCity`. Right-click a widget to remove it. |
 | **Dark mode** | Dock, menus, Control Center, Spotlight, Launchpad and widgets all switch to near-black glass, and the switch happens live. By default it follows the Windows light/dark setting. Set `"Appearance"` to force one, or use the Dark Mode tile in Control Center. |
-| **Clear glass** | By default the dock and menu bar are clear, see-through glass, like macOS's clear Liquid Glass: no blur and a barely-there tint, with bright edge highlights that make them read as glass. Choose **Frosted** in Settings for the blurred look. Menus, Control Center and widgets stay frosted so text is readable. |
+| **Clear glass** | By default the dock and widgets are clear, see-through glass, like macOS's clear Liquid Glass: no blur and a barely-there tint, with bright edge highlights that make them read as glass. Text and clock hands turn white over dark wallpapers. Choose **Frosted** in Settings for the blurred look. The menu bar, menus and Control Center are frosted so text is always readable. |
 | **Glass look** | The compositor blurs whatever is behind each surface, with a tinted, rim-lit glass layer painted over it. Light and dark appearance are both supported. |
 
 ## Install
@@ -96,7 +96,7 @@ Everything is stored in `%APPDATA%\Orchard\settings.json`, which you can also ed
   "TrafficLightExclusions": [],        // e.g. ["chrome.exe"] to keep an app's own buttons in that spot
   "HideWindowsTaskbar": true,
   "Appearance": "Auto",                // Auto (follow Windows) | Light | Dark
-  "Glass": "Clear",                    // dock & menu bar: Clear (see-through) | Frosted
+  "Glass": "Clear",                    // dock & widgets: Clear (see-through) | Frosted
   "ShowWidgets": true,
   "Widgets": ["Clock", "Calendar", "Weather", "Battery", "System"],
   "WeatherCity": "London",             // empty = the weather widget asks you to set one

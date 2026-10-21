@@ -34,7 +34,7 @@ public sealed class SettingsWindow : Window
 
         body.Children.Add(Section("Appearance",
             Row("Theme", Combo(_s.Appearance, v => _s.Appearance = v, ("Match Windows", Appearance.Auto), ("Light", Appearance.Light), ("Dark", Appearance.Dark))),
-            Row("Dock & menu bar glass", Combo(_s.Glass, v => _s.Glass = v, ("Clear (see-through)", GlassStyle.Clear), ("Frosted", GlassStyle.Frosted)))));
+            Row("Dock & widget glass", Combo(_s.Glass, v => _s.Glass = v, ("Clear (see-through)", GlassStyle.Clear), ("Frosted", GlassStyle.Frosted)))));
 
         body.Children.Add(Section("Dock",
             Row("Show the dock", Combo(_s.Dock, v => _s.Dock = v,

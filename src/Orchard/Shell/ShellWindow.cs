@@ -86,8 +86,11 @@ public class ShellWindow : Window
         nint region = Native.CreateRectRgn(0, 0, 0, 0);
         foreach (var shape in shapes)
         {
-            var r = shape.Rect;
-            int d = (int)Math.Round(shape.RadiiTopLeft.X * 2 * s);
+            // Window regions are hard-edged (no anti-aliasing). Make the region 3 DIP bigger than the painted shape
+            // so it never cuts through the shape's smooth edge — otherwise rounded corners come out jagged.
+            const double margin = 3;
+            var r = shape.Rect.Inflate(margin);
+            int d = (int)Math.Round((shape.RadiiTopLeft.X + margin) * 2 * s);
             nint part = Native.CreateRoundRectRgn((int)Math.Floor(r.X * s), (int)Math.Floor(r.Y * s),
                 (int)Math.Ceiling(r.Right * s) + 1, (int)Math.Ceiling(r.Bottom * s) + 1, d, d);
             Native.CombineRgn(region, region, part, Native.RGN_OR);
