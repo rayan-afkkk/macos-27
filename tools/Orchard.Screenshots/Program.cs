@@ -13,6 +13,22 @@ using Orchard.Theme;
 // Renders Orchard's real UI controls headlessly (Skia, no window system needed) into PNGs under docs/screenshots.
 // Usage: dotnet run --project tools/Orchard.Screenshots [output-dir]
 
+if (args.Length > 0 && args[0] == "--wallpapers")
+{
+    AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
+    var dir = Path.Combine(FindRepoRoot(), "docs", "wallpapers");
+    Directory.CreateDirectory(dir);
+    foreach (var theme in Enum.GetValues<WallpaperTheme>())
+    {
+        // Render at 4K; the art is resolution independent, so it is crisp at any size.
+        using var bmp = new WallpaperArt { Theme = theme }.Render(new PixelSize(3840, 2160));
+        var file = Path.Combine(dir, $"orchard-{theme.ToString().ToLowerInvariant()}-4k.png");
+        bmp.Save(file);
+        Console.WriteLine($"  {file}");
+    }
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--icon")
 {
     AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();

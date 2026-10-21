@@ -6,24 +6,44 @@ using Avalonia.Platform;
 
 namespace Orchard.Rendering;
 
-/// <summary>An original procedural wallpaper: layered translucent waves over a deep blue gradient.</summary>
+public enum WallpaperTheme { Dawn, Night, Sunset, Mint }
+
+/// <summary>An original procedural wallpaper: layered translucent waves over a soft gradient with coloured glows.</summary>
 public sealed class WallpaperArt
 {
-    public bool Dark { get; init; }
+    private sealed record Scheme(Color Top, Color Bottom, (double X, double Y, double R, Color C)[] Glows, Color[] Waves, byte RimAlpha);
+
+    /// <summary>Kept for existing callers: Dark selects <see cref="WallpaperTheme.Night"/>, otherwise <see cref="WallpaperTheme.Dawn"/>.</summary>
+    public bool Dark { get => Theme == WallpaperTheme.Night; init => Theme = value ? WallpaperTheme.Night : WallpaperTheme.Dawn; }
+    public WallpaperTheme Theme { get; init; } = WallpaperTheme.Dawn;
+
+    private static Color C(byte a, byte r, byte g, byte b) => Color.FromArgb(a, r, g, b);
+
+    private Scheme Colors => Theme switch
+    {
+        WallpaperTheme.Night => new(Color.FromRgb(0x05, 0x0B, 0x24), Color.FromRgb(0x10, 0x2A, 0x5A),
+            [(0.18, 0.22, 0.55, C(0x90, 0x5B, 0x3C, 0xE8)), (0.85, 0.30, 0.50, C(0x80, 0x00, 0x8B, 0xC8)), (0.55, 0.95, 0.60, C(0x70, 0x1D, 0x5F, 0xD8))],
+            [C(0x60, 0x2E, 0x5B, 0xFF), C(0x50, 0x0F, 0xA3, 0xD8), C(0x58, 0x5B, 0x3C, 0xE8), C(0x40, 0x9F, 0xD8, 0xFF)], 0x40),
+        WallpaperTheme.Sunset => new(Color.FromRgb(0x2B, 0x14, 0x5E), Color.FromRgb(0xFF, 0x9A, 0x6B),
+            [(0.20, 0.25, 0.55, C(0x90, 0xB0, 0x3C, 0xE0)), (0.85, 0.35, 0.50, C(0x90, 0xFF, 0x5E, 0x8A)), (0.50, 0.95, 0.65, C(0xA0, 0xFF, 0xC2, 0x6B))],
+            [C(0x70, 0x8E, 0x2D, 0xD8), C(0x60, 0xFF, 0x4F, 0x87), C(0x60, 0xFF, 0x8A, 0x4F), C(0x80, 0xFF, 0xD9, 0xA8)], 0x50),
+        WallpaperTheme.Mint => new(Color.FromRgb(0x0B, 0x5E, 0x5A), Color.FromRgb(0xB8, 0xF5, 0xD8),
+            [(0.18, 0.22, 0.55, C(0x90, 0x16, 0xB8, 0x9C)), (0.85, 0.30, 0.50, C(0x80, 0x3C, 0x9E, 0xF0)), (0.55, 0.95, 0.60, C(0x90, 0xFF, 0xFF, 0xFF))],
+            [C(0x70, 0x0E, 0x8A, 0x7A), C(0x60, 0x2C, 0xC8, 0xA8), C(0x58, 0x3C, 0x9E, 0xF0), C(0x80, 0xE6, 0xFF, 0xF2)], 0x50),
+        _ => new(Color.FromRgb(0x2C, 0x6B, 0xE6), Color.FromRgb(0x8E, 0xD6, 0xF5),
+            [(0.18, 0.22, 0.55, C(0xA0, 0x7B, 0x5C, 0xFF)), (0.85, 0.30, 0.50, C(0x90, 0x3D, 0xE0, 0xF2)), (0.55, 0.95, 0.60, C(0x90, 0xFF, 0xFF, 0xFF))],
+            [C(0x70, 0x1F, 0x4F, 0xD8), C(0x60, 0x2A, 0xB5, 0xF0), C(0x58, 0x6A, 0x4C, 0xF5), C(0x80, 0xE9, 0xF7, 0xFF)], 0x40),
+    };
 
     public void Draw(DrawingContext ctx, Rect r)
     {
-        var top = Dark ? Color.FromRgb(0x05, 0x0B, 0x24) : Color.FromRgb(0x2C, 0x6B, 0xE6);
-        var bottom = Dark ? Color.FromRgb(0x10, 0x2A, 0x5A) : Color.FromRgb(0x8E, 0xD6, 0xF5);
-        ctx.DrawRectangle(Shapes.Vertical(top, bottom), null, r);
+        var scheme = Colors;
+        ctx.DrawRectangle(Shapes.Vertical(scheme.Top, scheme.Bottom), null, r);
+        foreach (var (x, y, radius, color) in scheme.Glows) Glow(ctx, r, x, y, radius, color);
 
-        Glow(ctx, r, 0.18, 0.22, 0.55, Dark ? Color.FromArgb(0x90, 0x5B, 0x3C, 0xE8) : Color.FromArgb(0xA0, 0x7B, 0x5C, 0xFF));
-        Glow(ctx, r, 0.85, 0.30, 0.50, Dark ? Color.FromArgb(0x80, 0x00, 0x8B, 0xC8) : Color.FromArgb(0x90, 0x3D, 0xE0, 0xF2));
-        Glow(ctx, r, 0.55, 0.95, 0.60, Dark ? Color.FromArgb(0x70, 0x1D, 0x5F, 0xD8) : Color.FromArgb(0x90, 0xFF, 0xFF, 0xFF));
-
-        Color[] waves = Dark
-            ? [Color.FromArgb(0x60, 0x2E, 0x5B, 0xFF), Color.FromArgb(0x50, 0x0F, 0xA3, 0xD8), Color.FromArgb(0x58, 0x5B, 0x3C, 0xE8), Color.FromArgb(0x40, 0x9F, 0xD8, 0xFF)]
-            : [Color.FromArgb(0x70, 0x1F, 0x4F, 0xD8), Color.FromArgb(0x60, 0x2A, 0xB5, 0xF0), Color.FromArgb(0x58, 0x6A, 0x4C, 0xF5), Color.FromArgb(0x80, 0xE9, 0xF7, 0xFF)];
+        var waves = scheme.Waves;
+        // Keep the rim of each wave the same visual weight at any resolution.
+        var rim = new Pen(new ImmutableSolidColorBrush(Color.FromArgb(scheme.RimAlpha, 255, 255, 255)), Math.Max(1.2, r.Width / 1200));
         for (int i = 0; i < waves.Length; i++)
         {
             double baseY = 0.38 + i * 0.13, amp = 0.09 + i * 0.015, phase = i * 1.3;
@@ -51,10 +71,8 @@ public sealed class WallpaperArt
                 EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
                 GradientStops = { new GradientStop(waves[i], 0), new GradientStop(Shapes.WithAlpha(waves[i], waves[i].A / 255.0 * 0.25), 1) },
             };
-            ctx.DrawGeometry(fill, new Pen(Palette(0x40), 1.2), g);
+            ctx.DrawGeometry(fill, rim, g);
         }
-
-        static IBrush Palette(byte a) => new ImmutableSolidColorBrush(Color.FromArgb(a, 255, 255, 255));
     }
 
     private static void Glow(DrawingContext ctx, Rect r, double cx, double cy, double radius, Color color)
