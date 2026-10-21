@@ -111,6 +111,16 @@ public class VisibilityTests
     }
 
     [Fact]
+    public void Default_menu_bar_mode_hides_for_maximized_and_fullscreen_only()
+    {
+        var maximized = new ForegroundInfo(new Rect(0, 0, 1920, 1080), true, false, true);
+        var normal = new ForegroundInfo(new Rect(100, 100, 800, 600), false, false, true);
+        Assert.True(VisibilityRules.MenuBarWantsHide(MenuBarVisibility.HideWhenMaximized, maximized));
+        Assert.False(VisibilityRules.MenuBarWantsHide(MenuBarVisibility.HideWhenMaximized, normal));
+        Assert.False(VisibilityRules.MenuBarWantsHide(MenuBarVisibility.HideWhenMaximized, null));
+    }
+
+    [Fact]
     public void Covers_monitor_detects_borderless_fullscreen()
     {
         Assert.True(VisibilityRules.CoversMonitor(new Rect(-1, -1, 1922, 1082), Monitor));
@@ -229,6 +239,22 @@ public class AppSearchTests
 public class SettingsTests
 {
     [Fact]
+    public void Old_settings_files_move_to_new_defaults_once()
+    {
+        // A v0.2 file: no SchemaVersion, old defaults written out explicitly.
+        var old = SettingsStore.Deserialize("""{ "MenuBar": "HideInFullscreen", "TrafficLights": true, "Dock": "AlwaysShow" }""")!;
+        Assert.True(SettingsStore.Migrate(old));
+        Assert.Equal(MenuBarVisibility.HideWhenMaximized, old.MenuBar);
+        Assert.False(old.TrafficLights);
+        Assert.Equal(DockVisibility.AlwaysShow, old.Dock); // unrelated choices are kept
+
+        // Once migrated, the user's own choices stick.
+        old.TrafficLights = true;
+        Assert.False(SettingsStore.Migrate(old));
+        Assert.True(old.TrafficLights);
+    }
+
+    [Fact]
     public void Round_trips_through_json_with_readable_enums()
     {
         var s = new OrchardSettings { Dock = DockVisibility.AlwaysAutoHide, MinimizeEffect = MinimizeEffect.Scale, IconSize = 60 };
@@ -242,11 +268,12 @@ public class SettingsTests
     }
 
     [Fact]
-    public void Defaults_hide_dock_for_maximized_windows_and_menu_bar_for_fullscreen()
+    public void Defaults_hide_dock_and_menu_bar_for_maximized_windows()
     {
         var s = new OrchardSettings();
         Assert.Equal(DockVisibility.HideWhenOverlapped, s.Dock);
-        Assert.Equal(MenuBarVisibility.HideInFullscreen, s.MenuBar);
+        Assert.Equal(MenuBarVisibility.HideWhenMaximized, s.MenuBar);
+        Assert.False(s.TrafficLights);
         Assert.True(s.HideWindowsTaskbar);
     }
 }

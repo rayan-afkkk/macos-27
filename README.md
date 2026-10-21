@@ -23,10 +23,10 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 | | What it does |
 |---|---|
 | **Dock** | Glass shelf with a magnification wave, launch bounce, running-app dots, hover labels, pinned apps + running apps + Recycle Bin, and a right-click menu (Keep in Dock, Show in Explorer, Quit, the app's windows). Real app icons are pulled at 256 px. |
-| **Auto-hide** | The dock slides away when a window is maximized, fullscreen or dragged over it. Rest the pointer on the bottom edge to bring it back. In fullscreen the menu bar slides up and returns when you touch the top edge. |
+| **Auto-hide** | The dock slides away when a window is maximized, fullscreen or dragged over it. It pops back as soon as the pointer touches the bottom edge, like the Windows 11 auto-hide taskbar. The menu bar slides up when the app in front is maximized and comes back when you push the pointer to the top edge. The top-right corner is left alone so the app's own close button stays reachable. |
 | **Windows taskbar** | Hidden while Orchard runs, so its reveal zone doesn't fight the dock's. If Windows tries to pop it back up, Orchard hides it again immediately. It's **always restored**: on exit, by a watchdog process if Orchard crashes or is killed, and on the next launch if the PC lost power. |
 | **Menu bar** | Logo menu (About, Settings, Force Quit, Sleep/Restart/Shut Down, Lock), the **bold name of the app in front**, then File / Edit / View / Window / Help. Menu items send the standard shortcut (Copy → Ctrl+C) to the front app, so they work in almost any program. With a menu open, sliding along the bar switches menus. On the right: battery, Wi-Fi, Spotlight, Control Center, clock. On the desktop it's a solid frosted bar that reserves its strip, and windows that were already maximized are moved down below it. |
-| **Window buttons** | Close / minimize / zoom buttons follow the active window. Hovering shows the ×, − and zoom symbols. Minimize plays the genie effect into the app's dock icon, and clicking the icon pours the window back out. |
+| **Window buttons** | Optional, and off by default so apps keep their normal Windows buttons. When turned on in Settings, red/yellow/green buttons follow the active window, and minimize plays the genie effect into the app's dock icon. **Window ▸ Minimize** always uses the genie effect. |
 | **Spotlight** | **Alt+Space**. Fuzzy search over Start-menu apps (try `vsc`), inline maths (`(1440*900)/2`) and web search. |
 | **Launchpad** | Full-screen, paged grid of every installed app, with search. |
 | **Control Center** | Real volume and laptop-brightness sliders, a real dark mode toggle, and Lock. Wi-Fi, Bluetooth, Airplane, Focus and Cast open the matching Settings page, because Windows doesn't let normal apps flip those radios. |
@@ -77,12 +77,12 @@ Everything is stored in `%APPDATA%\Orchard\settings.json`, which you can also ed
 ```jsonc
 {
   "Dock": "HideWhenOverlapped",        // AlwaysShow | HideWhenOverlapped | AlwaysAutoHide
-  "MenuBar": "HideInFullscreen",       // AlwaysShow | HideInFullscreen | AlwaysAutoHide
+  "MenuBar": "HideWhenMaximized",      // AlwaysShow | HideWhenMaximized | HideInFullscreen | AlwaysAutoHide
   "IconSize": 54,
   "Magnification": true,
   "MagnifiedScale": 1.75,
   "MinimizeEffect": "Genie",           // Genie | Scale | System
-  "TrafficLights": true,
+  "TrafficLights": false,              // red/yellow/green overlay buttons (off = normal Windows buttons)
   "TrafficLightExclusions": [],        // e.g. ["chrome.exe"] to keep an app's own buttons in that spot
   "HideWindowsTaskbar": true,
   "Appearance": "Auto",                // Auto (follow Windows) | Light | Dark
@@ -133,9 +133,8 @@ dotnet run --project tools/Orchard.Screenshots -c Release -- --video docs/orchar
 
 * **System tray icons** (Discord, OneDrive, …) aren't mirrored into the menu bar yet, so they're hidden along with
   the taskbar. Set `"HideWindowsTaskbar": false` if you rely on them.
-* The window buttons are **overlaid** on each app's title bar. The app's own Windows buttons are still on the right,
-  and in apps that draw something at the top-left (browser tabs) the overlay covers a little of it. Use
-  `TrafficLightExclusions` for those apps.
+* The optional red/yellow/green buttons are **overlaid** on each app's title bar. The app's own buttons stay on
+  the right, and in apps that draw something at the top-left (browser tabs) the overlay covers a little of it.
 * Genie only runs when you minimize through Orchard (the yellow button, Window ▸ Minimize, App ▸ Hide). Win+↓ and the
   app's own minimize button use a plain minimize.
 * Wi-Fi and Bluetooth tiles open Settings rather than toggling the radio.

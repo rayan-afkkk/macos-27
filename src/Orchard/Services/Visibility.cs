@@ -19,6 +19,7 @@ public static class VisibilityRules
     {
         MenuBarVisibility.AlwaysShow => false,
         MenuBarVisibility.AlwaysAutoHide => true,
+        MenuBarVisibility.HideWhenMaximized => fg is { IsAppWindow: true } f && (f.IsFullscreen || f.IsMaximized),
         _ => fg is { IsAppWindow: true, IsFullscreen: true },
     };
 

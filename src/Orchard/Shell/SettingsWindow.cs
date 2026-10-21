@@ -46,7 +46,8 @@ public sealed class SettingsWindow : Window
 
         body.Children.Add(Section("Menu bar & windows",
             Row("Show the menu bar", Combo(_s.MenuBar, v => _s.MenuBar = v,
-                ("Always", MenuBarVisibility.AlwaysShow), ("Hide in fullscreen", MenuBarVisibility.HideInFullscreen), ("Auto-hide", MenuBarVisibility.AlwaysAutoHide))),
+                ("Always", MenuBarVisibility.AlwaysShow), ("Hide when an app is maximized", MenuBarVisibility.HideWhenMaximized),
+                ("Hide in fullscreen", MenuBarVisibility.HideInFullscreen), ("Auto-hide", MenuBarVisibility.AlwaysAutoHide))),
             Row("Red / yellow / green window buttons", Toggle(_s.TrafficLights, v => _s.TrafficLights = v)),
             Row("Hide the Windows taskbar", Toggle(_s.HideWindowsTaskbar, v => _s.HideWindowsTaskbar = v))));
 

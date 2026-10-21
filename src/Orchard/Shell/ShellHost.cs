@@ -49,8 +49,9 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private bool _popupIsDockMenu;
     private ShellWindow? _genieWindow;
 
-    private readonly EdgeReveal _dockReveal = new();
-    private readonly EdgeReveal _menuReveal = new() { RevealDelay = TimeSpan.FromMilliseconds(150) };
+    // Like the Windows 11 auto-hide taskbar: touch the bottom edge and the dock is there.
+    private readonly EdgeReveal _dockReveal = new() { RevealDelay = TimeSpan.FromMilliseconds(40) };
+    private readonly EdgeReveal _menuReveal = new() { RevealDelay = TimeSpan.FromMilliseconds(220) };
     private double _menuOffset; // 0 = shown, 1 = slid above the screen
     private readonly DispatcherTimer _tick;
     private readonly DispatcherTimer _taskbarGuard;
@@ -88,7 +89,9 @@ public sealed class ShellHost : IShellCommands, IDisposable
         };
         _menuWindow.Opened += (_, _) =>
         {
-            if (settings.MenuBar != MenuBarVisibility.AlwaysAutoHide)
+            // Only reserve the strip when the bar stays put; otherwise maximized apps should get the full screen
+            // and the bar slides over them on demand.
+            if (settings.MenuBar is MenuBarVisibility.AlwaysShow or MenuBarVisibility.HideInFullscreen)
             {
                 _appBar = new AppBar(_menuWindow.Handle, ToRect(_monitor), (int)Math.Ceiling(MenuBarView.BarHeight * _menuWindow.Scale));
                 // Windows that were already maximized still cover the new strip; give the work area a moment, then refit them.
@@ -285,7 +288,9 @@ public sealed class ShellHost : IShellCommands, IDisposable
         // Menu bar: slides up out of the way in fullscreen, drops back when the pointer touches the top edge.
         bool menuWantsHide = VisibilityRules.MenuBarWantsHide(_settings.MenuBar, fg);
         bool menuEngaged = _popup != null && !_popupIsDockMenu || pointer.Y < _monitor.Y + MenuBarView.BarHeight * s && onMonitor && _menuOffset < 0.5;
-        _menuReveal.Update(now, menuWantsHide, onMonitor && pointer.Y <= _monitor.Y + 1, menuEngaged);
+        // The top-right corner is where a maximized app's own close/maximize buttons live — never pop the bar over them.
+        bool atTop = onMonitor && pointer.Y <= _monitor.Y + 1 && pointer.X < _monitor.Right - 170 * s;
+        _menuReveal.Update(now, menuWantsHide, atTop, menuEngaged);
         double menuTarget = _menuReveal.Visible ? 0 : 1;
         if (_menuOffset != menuTarget)
         {

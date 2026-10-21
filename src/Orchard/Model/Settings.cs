@@ -15,9 +15,12 @@ public enum DockVisibility
 
 public enum MenuBarVisibility
 {
+    /// <summary>Always visible, and reserves its strip so maximized windows stop below it.</summary>
     AlwaysShow,
     /// <summary>Stays put for maximized windows, slides away for true fullscreen (games, video, F11).</summary>
     HideInFullscreen,
+    /// <summary>Slides away while the app in front is maximized or fullscreen; push the pointer to the top edge to bring it back (default).</summary>
+    HideWhenMaximized,
     AlwaysAutoHide,
 }
 
@@ -37,8 +40,13 @@ public sealed record PinnedApp(string Name, string Target, string? Icon = null, 
 
 public sealed class OrchardSettings
 {
+    public const int CurrentSchema = 2;
+
+    /// <summary>Lets <see cref="SettingsStore.Load"/> move older settings files onto new defaults once.</summary>
+    public int? SchemaVersion { get; set; }
+
     public DockVisibility Dock { get; set; } = DockVisibility.HideWhenOverlapped;
-    public MenuBarVisibility MenuBar { get; set; } = MenuBarVisibility.HideInFullscreen;
+    public MenuBarVisibility MenuBar { get; set; } = MenuBarVisibility.HideWhenMaximized;
 
     public double IconSize { get; set; } = 54;
     public bool Magnification { get; set; } = true;
@@ -46,7 +54,8 @@ public sealed class OrchardSettings
     public double MagnifiedScale { get; set; } = 1.75;
 
     public MinimizeEffect MinimizeEffect { get; set; } = MinimizeEffect.Genie;
-    public bool TrafficLights { get; set; } = true;
+    /// <summary>Overlay red/yellow/green buttons on app windows. Off by default: apps keep their normal Windows buttons.</summary>
+    public bool TrafficLights { get; set; }
     /// <summary>Process names (e.g. "explorer.exe") that keep their own window buttons.</summary>
     public List<string> TrafficLightExclusions { get; set; } = [];
 
@@ -91,14 +100,17 @@ public static class SettingsStore
     {
         try
         {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<OrchardSettings>(File.ReadAllText(FilePath), Options) ?? new();
+            if (File.Exists(FilePath) && JsonSerializer.Deserialize<OrchardSettings>(File.ReadAllText(FilePath), Options) is { } loaded)
+            {
+                if (Migrate(loaded)) Save(loaded);
+                return loaded;
+            }
         }
         catch (Exception e)
         {
             Log.Write($"settings.json unreadable, using defaults: {e.Message}");
         }
-        var defaults = new OrchardSettings();
+        var defaults = new OrchardSettings { SchemaVersion = OrchardSettings.CurrentSchema };
         Save(defaults);
         return defaults;
     }
@@ -114,6 +126,19 @@ public static class SettingsStore
         {
             Log.Write($"could not save settings: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// Schema 2 (v0.3): the menu bar hides for maximized apps and the red/yellow/green overlay is off by default.
+    /// Files written by earlier versions saved the old defaults explicitly, so they are moved over once.
+    /// </summary>
+    internal static bool Migrate(OrchardSettings s)
+    {
+        if ((s.SchemaVersion ?? 0) >= OrchardSettings.CurrentSchema) return false;
+        if (s.MenuBar == MenuBarVisibility.HideInFullscreen) s.MenuBar = MenuBarVisibility.HideWhenMaximized;
+        s.TrafficLights = false;
+        s.SchemaVersion = OrchardSettings.CurrentSchema;
+        return true;
     }
 
     internal static string Serialize(OrchardSettings settings) => JsonSerializer.Serialize(settings, Options);
