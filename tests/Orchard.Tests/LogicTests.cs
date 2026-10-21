@@ -250,3 +250,43 @@ public class SettingsTests
         Assert.True(s.HideWindowsTaskbar);
     }
 }
+
+public class WeatherTests
+{
+    [Theory]
+    [InlineData(0, WeatherKind.Clear)]
+    [InlineData(2, WeatherKind.PartlyCloudy)]
+    [InlineData(3, WeatherKind.Cloudy)]
+    [InlineData(45, WeatherKind.Fog)]
+    [InlineData(63, WeatherKind.Rain)]
+    [InlineData(81, WeatherKind.Rain)]
+    [InlineData(73, WeatherKind.Snow)]
+    [InlineData(95, WeatherKind.Storm)]
+    public void Maps_wmo_codes(int code, WeatherKind kind) => Assert.Equal(kind, WeatherInfo.FromWmo(code));
+
+    [Fact]
+    public void Parses_open_meteo_forecast()
+    {
+        const string json = """
+        {
+          "current": { "time": "2026-10-21T09:45", "temperature_2m": 17.6, "weather_code": 2, "is_day": 1 },
+          "hourly": {
+            "time": ["2026-10-21T09:00","2026-10-21T10:00","2026-10-21T11:00","2026-10-21T12:00"],
+            "temperature_2m": [17.0, 18.2, 19.9, 21.0],
+            "weather_code": [2, 0, 61, 95]
+          },
+          "daily": { "temperature_2m_max": [23.4], "temperature_2m_min": [12.1] }
+        }
+        """;
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var w = WeatherService.Parse(doc.RootElement, "London", fahrenheit: false);
+        Assert.Equal("London", w.City);
+        Assert.Equal(17.6, w.Temperature);
+        Assert.Equal("Partly Cloudy", w.Condition);
+        Assert.Equal(23.4, w.High);
+        Assert.Equal(12.1, w.Low);
+        Assert.Equal(3, w.Hourly.Count); // only hours after "now"
+        Assert.Equal(WeatherKind.Rain, w.Hourly[1].Kind);
+        Assert.Equal(WeatherKind.Storm, w.Hourly[2].Kind);
+    }
+}

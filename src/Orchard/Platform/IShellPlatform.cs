@@ -27,6 +27,9 @@ public sealed record LaunchItem(string Name, string Target, string? Arguments = 
 
 public sealed record BatteryInfo(int Percent, bool Charging);
 
+/// <summary>Processor and memory use, 0–1.</summary>
+public sealed record SystemLoad(double Cpu, double Memory, double MemoryTotalGb);
+
 /// <summary>A top-level window as the shell sees it, in physical screen pixels.</summary>
 public sealed record WindowInfo(nint Handle, string Title, PixelRect Bounds, bool IsMaximized, bool IsMinimized, string AppId);
 
@@ -76,6 +79,7 @@ public interface IShellPlatform : IDisposable
     /// <summary>The Windows app/system dark mode switch.</summary>
     bool DarkMode { get; set; }
     BatteryInfo? Battery { get; }
+    SystemLoad? Load { get; }
 
     IReadOnlyList<LaunchItem> InstalledApps { get; }
     IconArt IconFor(LaunchItem item);

@@ -143,7 +143,7 @@ public sealed class ControlCenterView : Control
     }
 
     private void Tile(DrawingContext ctx, Rect r) =>
-        ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
+        ctx.DrawRectangle(Palette.Brush(Palette.Tile),
             new Pen(Palette.Brush(Color.FromArgb(0x18, 0, 0, 0)), 0.5), new RoundedRect(r, 16));
 
     private static void Label(DrawingContext ctx, string text, double x, double y) =>
@@ -175,7 +175,7 @@ public sealed class ControlCenterView : Control
     private void Slider(DrawingContext ctx, string name, Rect r, double? value, Glyph glyph)
     {
         var track = new RoundedRect(r, r.Height / 2);
-        ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0, 0, 0)), null, track);
+        ctx.DrawRectangle(Palette.Brush(Palette.Track), null, track);
         if (value is not { } v)
         {
             var na = Shapes.Text("Not available on this display", 11, Palette.TextSecondary);

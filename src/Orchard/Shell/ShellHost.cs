@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Orchard.Controls;
 using Orchard.Model;
 using Orchard.Platform;
@@ -35,6 +36,10 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private readonly ShellWindow _lightsWindow;
     private readonly TrafficLights _lights;
     private AppBar? _appBar;
+    private readonly ShellWindow? _widgetsWindow;
+    private readonly WidgetBoard? _widgets;
+    private readonly WeatherService _weather;
+    private int _appearancePoll;
 
     private ShellWindow? _popup;
     private bool _popupIsDockMenu;
@@ -55,7 +60,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _settings = settings;
         _platform = platform;
         _monitor = platform.PrimaryMonitor;
-        Palette.Dark = settings.DarkMode || platform.DarkMode;
+        Palette.Dark = settings.Appearance switch { Appearance.Dark => true, Appearance.Light => false, _ => platform.DarkMode };
         MenuCatalog.WindowTitle = Native.GetText;
 
         SystemState.Capture();
@@ -102,8 +107,36 @@ public sealed class ShellHost : IShellCommands, IDisposable
         platform.ForegroundChanged += () => Dispatcher.UIThread.Post(OnForegroundChanged);
         platform.ForegroundMoved += () => Dispatcher.UIThread.Post(PositionLights);
 
+        // ---- desktop widgets (bottom of the z-order, under every window) ----
+        _weather = new WeatherService(settings);
+        if (settings.ShowWidgets && settings.Widgets.Count > 0)
+        {
+            var widgets = _widgets = new WidgetBoard(platform, _weather) { Kinds = settings.Widgets };
+            var window = _widgetsWindow = new ShellWindow(activatable: false, topmost: false) { Content = widgets, Title = "Orchard Widgets" };
+            double ws = window.Scale;
+            window.PlaceAt(new PixelRect(_monitor.X + (int)(24 * ws), _monitor.Y + (int)((MenuBarView.BarHeight + 18) * ws),
+                (int)Math.Ceiling(WidgetBoard.BoardWidth * ws) + 2, (int)Math.Ceiling(widgets.Height * ws) + 2));
+            window.Opened += (_, _) => { window.SetShape(widgets.TileShapes); window.EnableBlur(); SendWidgetsToBottom(); };
+            widgets.ShapeChanged += shapes => Dispatcher.UIThread.Post(() => window.SetShape(shapes));
+            widgets.WidgetMenuRequested += (kind, rect) =>
+            {
+                var panel = new MenuPanel(MenuCatalog.ForWidget(() =>
+                {
+                    settings.Widgets.Remove(kind);
+                    SettingsStore.Save(settings);
+                    widgets.Kinds = settings.Widgets.ToList();
+                }, OpenSettingsFile));
+                panel.Dismissed += ClosePopup;
+                double s = window.Scale;
+                ShowPopup(panel, new PixelPoint(window.Position.X + (int)((rect.X + 24) * s), window.Position.Y + (int)((rect.Y + 24) * s)));
+            };
+        }
+
+        Palette.Changed += () => Dispatcher.UIThread.Post(RepaintAll);
+
         _menuWindow.Show();
         _dockWindow.Show();
+        _widgetsWindow?.Show();
         OnForegroundChanged();
 
         _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Normal, (_, _) => Tick());
@@ -118,6 +151,24 @@ public sealed class ShellHost : IShellCommands, IDisposable
     }
 
     private static Native.RECT ToRect(PixelRect r) => new(r.X, r.Y, r.Right, r.Bottom);
+
+    /// <summary>Widgets live on the desktop layer: keep them beneath every app window.</summary>
+    private void SendWidgetsToBottom()
+    {
+        if (_widgetsWindow is { Handle: not 0 } w)
+            Native.SetWindowPos(w.Handle, Native.HWND_BOTTOM, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE);
+    }
+
+    /// <summary>Light ↔ dark: every surface reads the palette when it paints, so a repaint is all it takes.</summary>
+    private void RepaintAll()
+    {
+        foreach (var window in new[] { _menuWindow, _dockWindow, _lightsWindow, _widgetsWindow, _popup })
+            if (window?.Content is Visual root)
+            {
+                root.InvalidateVisual();
+                foreach (var v in root.GetVisualDescendants()) v.InvalidateVisual();
+            }
+    }
 
     // ---- hotkeys -------------------------------------------------------------------------------
 
@@ -145,6 +196,9 @@ public sealed class ShellHost : IShellCommands, IDisposable
         var now = DateTime.UtcNow;
         double dt = Math.Clamp((now - _lastTick).TotalSeconds, 0, 0.1);
         _lastTick = now;
+
+        // Appearance "Auto" follows the Windows light/dark switch (checked every ~2 s; it's a registry read).
+        if (_settings.Appearance == Appearance.Auto && ++_appearancePoll % 60 == 0) Palette.Dark = _platform.DarkMode;
 
         var fg = _platform.ForegroundState(_monitor);
         var pointer = _platform.Pointer;
@@ -186,6 +240,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _menuBar.AppName = app?.Name ?? "File Explorer";
         _menuBar.InvalidateVisual();
         PositionLights();
+        SendWidgetsToBottom();
     }
 
     private bool LightsWanted(out WindowInfo fg)

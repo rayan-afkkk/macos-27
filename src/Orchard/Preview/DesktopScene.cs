@@ -22,6 +22,10 @@ public sealed class DesktopScene : Canvas, IShellCommands
     public PreviewPlatform Platform { get; }
     public MenuBarView MenuBar { get; }
     public DockControl Dock { get; }
+    public WidgetBoard Widgets { get; }
+    private readonly Image _wallpaper = new();
+    private readonly double _renderScale;
+    private readonly Dictionary<bool, (Bitmap Image, Bitmap Blurred)> _wallpapers = [];
     public List<FakeWindow> Windows { get; } = [];
     private readonly Canvas _overlay = new();
     private readonly OrchardSettings _settings;
@@ -43,13 +47,24 @@ public sealed class DesktopScene : Canvas, IShellCommands
         ClipToBounds = true;
         Platform = new PreviewPlatform(screen);
 
-        var wallpaper = new WallpaperArt { Dark = Orchard.Theme.Palette.Dark }.Render(new PixelSize((int)(screen.Width * renderScale), (int)(screen.Height * renderScale)), renderScale);
-        Glass.PreviewBackdrop = Rendering.Blur.Apply(wallpaper, (int)(22 * renderScale));
-        Glass.PreviewBackdropScale = renderScale;
-        Children.Add(new Image { Source = wallpaper, Width = ScreenWidth, Height = ScreenHeight });
+        _renderScale = renderScale;
+        Children.Add(_wallpaper);
+        ApplyWallpaper();
 
-        AddWindow(new FakeWindow("Notes", FakeContent.Notes) { Width = 640, Height = 430, Active = false }, 120, 110);
-        AddWindow(new FakeWindow("orchard.dev", FakeContent.Browser) { Width = 940, Height = 600 }, ScreenWidth / 2 - 380, 80);
+        Widgets = new WidgetBoard(Platform)
+        {
+            Kinds = settings.ShowWidgets ? settings.Widgets : [],
+            SampleWeather = SampleWeather(),
+        };
+        SetLeft(Widgets, 24);
+        SetTop(Widgets, MenuBarView.BarHeight + 18);
+        Widgets.WidgetMenuRequested += (kind, rect) => ShowPopup(new MenuPanel(MenuCatalog.ForWidget(
+            () => Widgets.Kinds = Widgets.Kinds.Where(k => k != kind).ToList(), OpenSettingsFile)),
+            24 + rect.X + 20, MenuBarView.BarHeight + 18 + rect.Y + 20);
+        Children.Add(Widgets);
+
+        AddWindow(new FakeWindow("Notes", FakeContent.Notes) { Width = 600, Height = 400, Active = false }, ScreenWidth - 660, 380);
+        AddWindow(new FakeWindow("orchard.dev", FakeContent.Browser) { Width = 900, Height = 570 }, 420, 104);
 
         MenuBar = new MenuBarView(Platform) { Width = ScreenWidth, AppName = "Browser", MenuTitles = MenuCatalog.Titles };
         MenuBar.MenuRequested += (i, r) => { if (i < 0) ClosePopup(); else OpenMenu(i); };
@@ -83,13 +98,45 @@ public sealed class DesktopScene : Canvas, IShellCommands
 
         // Auto-hide: same rules and state machine as the real shell, fed with the fake desktop's state.
         _poll = new DispatcherTimer(TimeSpan.FromMilliseconds(30), DispatcherPriority.Normal, (_, _) => UpdateAutoHide());
-        AttachedToVisualTree += (_, _) => _poll.Start();
-        DetachedFromVisualTree += (_, _) => _poll.Stop();
+        AttachedToVisualTree += (_, _) => { _poll.Start(); Orchard.Theme.Palette.Changed += OnAppearanceChanged; };
+        DetachedFromVisualTree += (_, _) => { _poll.Stop(); Orchard.Theme.Palette.Changed -= OnAppearanceChanged; };
         AddHandler(PointerMovedEvent, (_, e) => _pointer = e.GetPosition(this), Avalonia.Interactivity.RoutingStrategies.Tunnel);
         AddHandler(PointerPressedEvent, (_, e) =>
         {
             if (_popup != null && !_popup.Bounds.Contains(e.GetPosition(_overlay)) && e.Source is Visual v && !IsInside(v, MenuBar)) ClosePopup();
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>Light and dark each get their own wallpaper; the glass backdrop is the matching blurred copy.</summary>
+    private void ApplyWallpaper()
+    {
+        bool dark = Orchard.Theme.Palette.Dark;
+        if (!_wallpapers.TryGetValue(dark, out var pair))
+        {
+            var size = new PixelSize((int)(ScreenWidth * _renderScale), (int)(ScreenHeight * _renderScale));
+            var image = new WallpaperArt { Dark = dark }.Render(size, _renderScale);
+            pair = _wallpapers[dark] = (image, Rendering.Blur.Apply(image, (int)(22 * _renderScale)));
+        }
+        Glass.PreviewBackdrop = pair.Blurred;
+        Glass.PreviewBackdropScale = _renderScale;
+        _wallpaper.Source = pair.Image;
+        _wallpaper.Width = ScreenWidth;
+        _wallpaper.Height = ScreenHeight;
+    }
+
+    private void OnAppearanceChanged()
+    {
+        ApplyWallpaper();
+        foreach (var v in this.GetVisualDescendants()) v.InvalidateVisual();
+    }
+
+    private static WeatherInfo SampleWeather()
+    {
+        var start = DateTime.Today.AddHours(10);
+        WeatherKind[] kinds = [WeatherKind.Clear, WeatherKind.Clear, WeatherKind.PartlyCloudy, WeatherKind.PartlyCloudy, WeatherKind.Cloudy, WeatherKind.Clear];
+        double[] temps = [19, 21, 22, 23, 22, 20];
+        return new WeatherInfo("San Francisco", 18, WeatherKind.PartlyCloudy, 23, 12, true,
+            kinds.Select((k, i) => new HourlyWeather(start.AddHours(i), temps[i], k)).ToList(), false);
     }
 
     private static bool IsInside(Visual v, Visual container)
@@ -120,7 +167,8 @@ public sealed class DesktopScene : Canvas, IShellCommands
     {
         foreach (var other in Windows) other.Active = other == w;
         Children.Remove(w);
-        Children.Insert(1 + Windows.Count(x => x != w && Children.Contains(x)), w);
+        int above = Windows.Where(x => x != w).Select(x => Children.IndexOf(x)).DefaultIfEmpty(Children.IndexOf(Widgets)).Max();
+        Children.Insert(above + 1, w);
         MenuBar.AppName = w.Content == FakeContent.Notes ? "Notes" : "Browser";
         MenuBar.InvalidateVisual();
     }
@@ -148,8 +196,12 @@ public sealed class DesktopScene : Canvas, IShellCommands
         UpdateAutoHide();
     }
 
+    /// <summary>When false the scene leaves the dock's hide state alone (the promo renderer drives it directly).</summary>
+    public bool AutoHide { get; set; } = true;
+
     private void UpdateAutoHide()
     {
+        if (!AutoHide) return;
         var w = ActiveWindow;
         ForegroundInfo? fg = w == null ? null : new ForegroundInfo(new Rect(GetLeft(w), GetTop(w), w.Width, w.Height), w.Maximized, false, true);
         Platform.SimulatedForeground = fg;
@@ -252,6 +304,8 @@ public sealed class DesktopScene : Canvas, IShellCommands
         _overlay.Children.Add(genie);
         return genie;
     }
+
+    public void RemoveGenie(GenieView genie) => _overlay.Children.Remove(genie);
 
     private async Task AnimateMinimize(FakeWindow w)
     {

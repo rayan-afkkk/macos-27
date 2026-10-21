@@ -12,6 +12,13 @@ using Orchard.Theme;
 // Renders Orchard's real UI controls headlessly (Skia, no window system needed) into PNGs under docs/screenshots.
 // Usage: dotnet run --project tools/Orchard.Screenshots [output-dir]
 
+if (args.Length > 0 && args[0] == "--video")
+{
+    AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
+    Promo.Render(Path.GetFullPath(args.Length > 1 ? args[1] : Path.Combine(FindRepoRoot(), "docs", "orchard-promo.mp4")));
+    return;
+}
+
 var outDir = Path.GetFullPath(args.Length > 0 ? args[0] : Path.Combine(FindRepoRoot(), "docs", "screenshots"));
 Directory.CreateDirectory(outDir);
 
@@ -81,6 +88,10 @@ Shot("11-dark-mode", scene =>
     scene.Dock.SimulatePointer(DockX(scene, "photos"), Find(scene, "photos"));
 }, dark: true);
 
+Shot("13-dark-control-center", scene => scene.OpenControlCenter(), dark: true);
+
+Shot("14-dark-spotlight", scene => scene.OpenSpotlightView("ca"), dark: true);
+
 TrafficLightCloseup();
 
 Console.WriteLine($"Screenshots written to {outDir}");
@@ -92,6 +103,7 @@ void Shot(string name, Action<DesktopScene> setup, bool dark = false)
     var settings = new OrchardSettings();
     var scene = new DesktopScene(screen, settings, Scale);
     scene.MenuBar.FixedNow = clock;
+    scene.Widgets.FixedNow = clock;
     var window = new Window { Width = screen.Width, Height = screen.Height, Content = scene, SystemDecorations = SystemDecorations.None };
     window.Show();
     Pump();

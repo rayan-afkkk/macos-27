@@ -157,7 +157,7 @@ internal static class Native
     public const int DWMWCP_DONOTROUND = 1, DWMWCP_ROUND = 2;
 
     public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40, SWP_FRAMECHANGED = 0x20;
-    public static readonly nint HWND_TOPMOST = -1, HWND_NOTOPMOST = -2;
+    public static readonly nint HWND_TOPMOST = -1, HWND_NOTOPMOST = -2, HWND_BOTTOM = 1;
 
     public const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, MOD_WIN = 0x8, MOD_NOREPEAT = 0x4000;
     public const uint VK_SPACE = 0x20, VK_MENU = 0x12, VK_CONTROL = 0x11, VK_SHIFT = 0x10, VK_ESCAPE = 0x1B, VK_LWIN = 0x5B;
@@ -265,6 +265,15 @@ internal static class Native
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(nint handle);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern bool QueryFullProcessImageNameW(nint process, uint flags, StringBuilder name, ref int size);
     [DllImport("kernel32.dll")] public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS status);
+    [DllImport("kernel32.dll")] public static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
+    [DllImport("kernel32.dll")] public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX status);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MEMORYSTATUSEX
+    {
+        public uint dwLength, dwMemoryLoad;
+        public ulong ullTotalPhys, ullAvailPhys, ullTotalPageFile, ullAvailPageFile, ullTotalVirtual, ullAvailVirtual, ullAvailExtendedVirtual;
+    }
     [DllImport("powrprof.dll")] public static extern bool SetSuspendState(bool hibernate, bool force, bool disableWake);
 
     // ---- COM: IImageList (only the members we call; vtable order must match commctrl.h) ---------

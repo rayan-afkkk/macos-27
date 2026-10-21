@@ -64,7 +64,7 @@ internal static class Program
 
     private static IDisposable StartPreview(OrchardSettings settings)
     {
-        Theme.Palette.Dark = settings.DarkMode;
+        Theme.Palette.Dark = settings.Appearance == Appearance.Dark;
         var window = new Window
         {
             Title = "Orchard — preview",

@@ -215,7 +215,14 @@ public sealed class DockControl : Control
         var now = DateTime.UtcNow;
         double dt = Math.Clamp((now - _lastFrame).TotalSeconds, 0, 0.05);
         _lastFrame = now;
+        bool moving = Advance(dt);
+        if (moving && TopLevel.GetTopLevel(this) is { } top) top.RequestAnimationFrame(Tick);
+        else _animating = false;
+    }
 
+    /// <summary>Steps the magnification, slide and bounce animations by <paramref name="dt"/> seconds. Returns true while anything is still moving.</summary>
+    public bool Advance(double dt)
+    {
         bool moving = false;
         for (int i = 0; i < _scale.Length; i++)
         {
@@ -235,8 +242,18 @@ public sealed class DockControl : Control
         moving |= _hover != null && (Now - _hoverSince).TotalSeconds < 0.4;
 
         InvalidateVisual();
-        if (moving && TopLevel.GetTopLevel(this) is { } top) top.RequestAnimationFrame(Tick);
-        else _animating = false;
+        return moving;
+    }
+
+    /// <summary>Moves the (simulated) pointer without snapping, so <see cref="Advance"/> animates the wave — used by the promo renderer.</summary>
+    public void SetPointer(Point? p)
+    {
+        if (p is not { } pt) { _pointerX = null; _hover = null; return; }
+        var layout = ComputeLayout();
+        bool over = layout.Shelf.Inflate(new Thickness(0, IconSize * (MaxScale - 1) + 6, 0, BottomMargin)).Contains(pt);
+        _pointerX = over && Hidden < 0.5 ? pt.X : null;
+        var hit = over ? HitTest(layout, pt) : null;
+        if (hit != _hover) { _hover = hit; _hoverSince = Now; }
     }
 
     // ---- painting ------------------------------------------------------------------------------

@@ -408,6 +408,28 @@ public sealed class WindowsPlatform : IShellPlatform
         set => ThemeSwitch.SetDark(value);
     }
 
+    private (long Idle, long Total) _lastCpu;
+    private double _cpu;
+
+    /// <summary>CPU use since the previous read (the widget polls every couple of seconds) and physical memory use.</summary>
+    public SystemLoad? Load
+    {
+        get
+        {
+            if (Native.GetSystemTimes(out long idle, out long kernel, out long user))
+            {
+                long total = kernel + user; // kernel time includes idle time
+                var (lastIdle, lastTotal) = _lastCpu;
+                if (lastTotal > 0 && total > lastTotal)
+                    _cpu = Math.Clamp(1 - (idle - lastIdle) / (double)(total - lastTotal), 0, 1);
+                _lastCpu = (idle, total);
+            }
+            var mem = new Native.MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<Native.MEMORYSTATUSEX>() };
+            if (!Native.GlobalMemoryStatusEx(ref mem)) return new SystemLoad(_cpu, 0, 0);
+            return new SystemLoad(_cpu, mem.dwMemoryLoad / 100.0, mem.ullTotalPhys / 1024.0 / 1024 / 1024);
+        }
+    }
+
     public BatteryInfo? Battery
     {
         get

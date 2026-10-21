@@ -6,11 +6,14 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 
 ![Desktop](docs/screenshots/01-desktop.png)
 
+▶ **[Watch the promo video](docs/orchard-promo.mp4)**: 36 s, rendered frame by frame from Orchard's own UI (`docs/orchard-promo.mp4`).
+
 | | |
 |---|---|
 | ![Menu](docs/screenshots/02-menu-bar-menu.png) | ![Control Center](docs/screenshots/04-control-center.png) |
 | ![Spotlight](docs/screenshots/05-spotlight.png) | ![Launchpad](docs/screenshots/07-launchpad.png) |
 | ![Genie](docs/screenshots/08-genie-minimize.png) | ![Dock revealed over a maximized window](docs/screenshots/10-maximized-dock-revealed.png) |
+| ![Dark mode](docs/screenshots/11-dark-mode.png) | ![Dark Control Center](docs/screenshots/13-dark-control-center.png) |
 
 > These screenshots come from Orchard's own UI controls, rendered headlessly by `tools/Orchard.Screenshots` over a
 > simulated desktop. On a real PC, the same controls sit over your actual apps.
@@ -27,6 +30,8 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 | **Spotlight** | **Alt+Space**. Fuzzy search over Start-menu apps (try `vsc`), inline maths (`(1440*900)/2`) and web search. |
 | **Launchpad** | Full-screen, paged grid of every installed app, with search. |
 | **Control Center** | Real volume and laptop-brightness sliders, a real dark mode toggle, and Lock. Wi-Fi, Bluetooth, Airplane, Focus and Cast open the matching Settings page, because Windows doesn't let normal apps flip those radios. |
+| **Widgets** | Clock, calendar, weather, battery and system (CPU/RAM) widgets sit on the desktop beneath your windows. Weather comes from Open-Meteo (free, no account) once you set `WeatherCity`. Right-click a widget to remove it. |
+| **Dark mode** | Dock, menus, Control Center, Spotlight, Launchpad and widgets all switch to near-black glass, and the switch happens live. By default it follows the Windows light/dark setting. Set `"Appearance"` to force one, or use the Dark Mode tile in Control Center. |
 | **Glass look** | The compositor blurs whatever is behind each surface, with a tinted, rim-lit glass layer painted over it. Light and dark appearance are both supported. |
 
 ## Run it
@@ -67,7 +72,11 @@ Use **logo menu → Orchard Settings…**, or edit `%APPDATA%\Orchard\settings.j
   "TrafficLights": true,
   "TrafficLightExclusions": [],        // e.g. ["chrome.exe"] to keep an app's own buttons in that spot
   "HideWindowsTaskbar": true,
-  "DarkMode": false,
+  "Appearance": "Auto",                // Auto (follow Windows) | Light | Dark
+  "ShowWidgets": true,
+  "Widgets": ["Clock", "Calendar", "Weather", "Battery", "System"],
+  "WeatherCity": "London",             // empty = the weather widget asks you to set one
+  "Fahrenheit": false,
   "Pinned": [ { "Name": "Notepad", "Target": "notepad.exe" } ]
 }
 ```
@@ -99,8 +108,9 @@ src/Orchard
 ## Tests and screenshots
 
 ```bash
-dotnet test tests/Orchard.Tests                 # dock maths, auto-hide timing, search, calculator, settings
+dotnet test tests/Orchard.Tests                 # dock maths, auto-hide timing, search, calculator, weather parsing, settings
 dotnet run --project tools/Orchard.Screenshots  # regenerates docs/screenshots/*.png (headless, any OS)
+dotnet run --project tools/Orchard.Screenshots -c Release -- --video docs/orchard-promo.mp4   # re-renders the promo (needs ffmpeg)
 ```
 
 ## Known limitations
@@ -114,7 +124,8 @@ dotnet run --project tools/Orchard.Screenshots  # regenerates docs/screenshots/*
   app's own minimize button use a plain minimize.
 * Wi-Fi and Bluetooth tiles open Settings rather than toggling the radio.
 * Primary monitor only for now.
-* Not done yet: Mission Control, widgets, notification center.
+* Widgets are placed in a fixed column at the top left. There's no drag-to-arrange or widget gallery yet; edit the `Widgets` list instead.
+* Not done yet: Mission Control, notification center.
 
 ## Legal
 

@@ -99,8 +99,13 @@ public sealed class PreviewPlatform : IShellPlatform
 
     public double? Volume { get; set; } = 0.62;
     public double? Brightness { get; set; } = 0.8;
-    public bool DarkMode { get; set; }
+    public bool DarkMode
+    {
+        get => Theme.Palette.Dark;
+        set => Theme.Palette.Dark = value;
+    }
     public BatteryInfo? Battery => new(86, false);
+    public SystemLoad? Load { get; set; } = new(0.23, 0.58, 16);
 
     public IReadOnlyList<LaunchItem> InstalledApps { get; }
 

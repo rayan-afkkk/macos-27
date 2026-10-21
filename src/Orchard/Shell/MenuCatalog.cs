@@ -148,6 +148,14 @@ public static class MenuCatalog
         static string Truncate(string s) => s.Length > 48 ? s[..47] + "…" : s;
     }
 
+    /// <summary>Right-click menu for a desktop widget.</summary>
+    public static IReadOnlyList<MenuItem> ForWidget(Action remove, Action edit) =>
+    [
+        new("Remove Widget", null, remove),
+        MenuItem.Separator,
+        new("Edit Widgets…", null, edit),
+    ];
+
     /// <summary>Overridden by the Windows shell to read real window titles.</summary>
     public static Func<nint, string> WindowTitle { get; set; } = _ => "Window";
 }

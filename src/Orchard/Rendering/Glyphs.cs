@@ -11,7 +11,8 @@ namespace Orchard.Rendering;
 public enum Glyph
 {
     Logo, Wifi, Battery, Search, ControlCenter, Bluetooth, Moon, Sun, Speaker, Airplane, Mirror,
-    Close, Minus, ZoomArrows, Plus, Gear, Chevron, Lock, Power, Play, Grid, Bell
+    Close, Minus, ZoomArrows, Plus, Gear, Chevron, Lock, Power, Play, Grid, Bell,
+    Cloud, CloudSun, Rain, Snow, Bolt, Fog, Cpu
 }
 
 public static class Glyphs
@@ -158,11 +159,57 @@ public static class Glyphs
                 for (int x = 0; x < 3; x++)
                     RoundRect(3.5 + x * 6, 3.5 + y * 6, 4.5, 4.5, 1.2, true);
                 break;
+            case Glyph.Cloud:
+                ctx.DrawGeometry(brush, null, CloudShape(P(12, 13.5), s));
+                break;
+            case Glyph.CloudSun:
+                Dot(15.5, 8.5, 3.6);
+                for (int i = 0; i < 6; i++)
+                {
+                    double a = -Math.PI * 0.95 + i * Math.PI / 5;
+                    Line(15.5 + 5.2 * Math.Cos(a), 8.5 + 5.2 * Math.Sin(a), 15.5 + 7 * Math.Cos(a), 8.5 + 7 * Math.Sin(a));
+                }
+                ctx.DrawGeometry(brush, null, CloudShape(P(10.5, 15), s * 0.85));
+                break;
+            case Glyph.Rain:
+                ctx.DrawGeometry(brush, null, CloudShape(P(12, 9.5), s * 0.9));
+                Line(8, 17, 7, 20.5); Line(12, 17, 11, 20.5); Line(16, 17, 15, 20.5);
+                break;
+            case Glyph.Snow:
+                ctx.DrawGeometry(brush, null, CloudShape(P(12, 9.5), s * 0.9));
+                Dot(8, 18.5, 1.1); Dot(12, 20, 1.1); Dot(16, 18.5, 1.1);
+                break;
+            case Glyph.Bolt:
+                ctx.DrawGeometry(brush, null, CloudShape(P(12, 9), s * 0.9));
+                Poly(true, true, 12.5, 14, 9, 19, 11.5, 19, 10.5, 23, 15, 17.5, 12.5, 17.5, 14, 14);
+                break;
+            case Glyph.Fog:
+                Line(4, 9, 20, 9); Line(6, 13, 18, 13); Line(4, 17, 20, 17);
+                break;
+            case Glyph.Cpu:
+                RoundRect(6, 6, 12, 12, 2, false);
+                RoundRect(9.5, 9.5, 5, 5, 1, true);
+                for (int i = 0; i < 3; i++)
+                {
+                    double o = 9 + i * 3;
+                    Line(o, 3, o, 6); Line(o, 18, o, 21); Line(3, o, 6, o); Line(18, o, 21, o);
+                }
+                break;
             case Glyph.Bell:
                 Poly(true, true, 12, 3, 16.5, 5.5, 17.5, 11, 19.5, 16.5, 4.5, 16.5, 6.5, 11, 7.5, 5.5);
                 Dot(12, 19.5, 2);
                 break;
         }
+    }
+
+    /// <summary>A three-bump cloud centred on <paramref name="c"/>, about 18 units wide.</summary>
+    private static Geometry CloudShape(Point c, double s)
+    {
+        Geometry Circle(double x, double y, double r) => new EllipseGeometry(new Rect(c.X + (x - r) * s, c.Y + (y - r) * s, r * 2 * s, r * 2 * s));
+        Geometry g = new CombinedGeometry(GeometryCombineMode.Union, Circle(-4.5, 1.5, 4), Circle(1, -1.5, 5.5));
+        g = new CombinedGeometry(GeometryCombineMode.Union, g, Circle(5.5, 1.8, 3.8));
+        return new CombinedGeometry(GeometryCombineMode.Union, g,
+            new RectangleGeometry(new Rect(c.X - 4.5 * s, c.Y + 1 * s, 10 * s, 4.6 * s)));
     }
 
     private static Geometry Crescent(Point c, double r)

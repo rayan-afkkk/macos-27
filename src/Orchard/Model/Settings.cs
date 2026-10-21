@@ -23,6 +23,16 @@ public enum MenuBarVisibility
 
 public enum MinimizeEffect { Genie, Scale, System }
 
+public enum Appearance
+{
+    /// <summary>Follow the Windows light/dark setting, live.</summary>
+    Auto,
+    Light,
+    Dark,
+}
+
+public enum WidgetKind { Clock, Calendar, Weather, Battery, System }
+
 public sealed record PinnedApp(string Name, string Target, string? Icon = null, string? Arguments = null);
 
 public sealed class OrchardSettings
@@ -42,7 +52,13 @@ public sealed class OrchardSettings
 
     /// <summary>Hide the Windows taskbar while Orchard runs. It is always restored on exit, even after a crash.</summary>
     public bool HideWindowsTaskbar { get; set; } = true;
-    public bool DarkMode { get; set; }
+    public Appearance Appearance { get; set; } = Appearance.Auto;
+
+    public bool ShowWidgets { get; set; } = true;
+    public List<WidgetKind> Widgets { get; set; } = [WidgetKind.Clock, WidgetKind.Calendar, WidgetKind.Weather, WidgetKind.Battery, WidgetKind.System];
+    /// <summary>City for the Weather widget, e.g. "London". Empty = the widget asks you to set one.</summary>
+    public string WeatherCity { get; set; } = "";
+    public bool Fahrenheit { get; set; }
     public bool ShowBatteryPercent { get; set; } = true;
 
     public List<PinnedApp> Pinned { get; set; } =

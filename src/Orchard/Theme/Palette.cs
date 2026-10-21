@@ -10,16 +10,35 @@ namespace Orchard.Theme;
 /// </summary>
 public static class Palette
 {
-    public static bool Dark { get; set; }
+    private static bool _dark;
+
+    /// <summary>Dark appearance: every glass surface turns near-black and text turns white. Switches live.</summary>
+    public static bool Dark
+    {
+        get => _dark;
+        set
+        {
+            if (_dark == value) return;
+            _dark = value;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>Raised when the appearance flips so open surfaces can repaint.</summary>
+    public static event Action? Changed;
 
     public static readonly FontFamily Font = new("avares://Orchard/Assets/Fonts#Inter, Segoe UI Variable Text, Segoe UI");
 
     // Glass: a translucent tint laid over the OS blur (or over the pre-blurred wallpaper in preview).
-    public static Color GlassTint => Dark ? Color.FromArgb(0x70, 0x1E, 0x1E, 0x22) : Color.FromArgb(0x5C, 0xFF, 0xFF, 0xFF);
-    public static Color GlassTintStrong => Dark ? Color.FromArgb(0xC8, 0x26, 0x26, 0x2B) : Color.FromArgb(0xC4, 0xF6, 0xF6, 0xF8);
-    public static Color GlassRimTop => Dark ? Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF);
-    public static Color GlassRimBottom => Dark ? Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF);
-    public static Color GlassOutline => Dark ? Color.FromArgb(0x66, 0x00, 0x00, 0x00) : Color.FromArgb(0x26, 0x00, 0x00, 0x00);
+    public static Color GlassTint => Dark ? Color.FromArgb(0xC8, 0x0C, 0x0C, 0x0E) : Color.FromArgb(0x5C, 0xFF, 0xFF, 0xFF);
+    public static Color GlassTintStrong => Dark ? Color.FromArgb(0xE8, 0x16, 0x16, 0x18) : Color.FromArgb(0xC4, 0xF6, 0xF6, 0xF8);
+    public static Color GlassRimTop => Dark ? Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF);
+    public static Color GlassRimBottom => Dark ? Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF);
+    public static Color GlassOutline => Dark ? Color.FromArgb(0x99, 0x00, 0x00, 0x00) : Color.FromArgb(0x26, 0x00, 0x00, 0x00);
+
+    /// <summary>Background of a module inside a glass panel (Control Center tiles, widget sub-areas).</summary>
+    public static Color Tile => Dark ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF);
+    public static Color Track => Dark ? Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0x00, 0x00, 0x00);
     public static Color GlassShadow => Color.FromArgb(Dark ? (byte)0x70 : (byte)0x38, 0, 0, 0);
 
     public static Color Text => Dark ? Color.FromRgb(0xF5, 0xF5, 0xF7) : Color.FromRgb(0x1D, 0x1D, 0x1F);
