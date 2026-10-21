@@ -298,7 +298,6 @@ public sealed class DockControl : Control
                 ctx.DrawEllipse(Palette.Brush(Palette.Dark ? Color.FromArgb(0xE0, 255, 255, 255) : Color.FromArgb(0xC0, 0x1D, 0x1D, 0x1F)), null, dot, 2, 2);
             }
 
-            if (r.Y < layout.Shelf.Y) shape.Add(new RoundedRect(new Rect(r.X, r.Y, r.Width, layout.Shelf.Y - r.Y + 1), r.Width * 0.22));
         }
 
         if (_hover != null && _pressed == null && Hidden < 0.1)
@@ -307,10 +306,21 @@ public sealed class DockControl : Control
             if (i >= 0)
             {
                 double fade = Math.Clamp((Now - _hoverSince).TotalSeconds / 0.15, 0, 1);
-                var label = DrawLabel(ctx, _hover.Name, layout.Icons[i], fade);
-                shape.Add(label);
+                DrawLabel(ctx, _hover.Name, layout.Icons[i], fade);
             }
         }
+
+        // The host window clips itself to these shapes. They must not change every animation frame — the window
+        // region is applied a frame late, which would shave the tops off growing icons. So: while the dock is in
+        // use the whole control is live; at rest only the shelf is; while sliding, the shelf plus some slack.
+        shape.Clear();
+        bool engaged = _pointerX != null || _hover != null || _pressed != null || _bounces.Count > 0 || IsMagnified;
+        if (engaged && Hidden < 0.5)
+            shape.Add(new RoundedRect(new Rect(Bounds.Size), 0));
+        else if (Hidden != HiddenTarget)
+            shape.Add(new RoundedRect(new Rect(layout.Shelf.X, layout.Shelf.Y - 14, layout.Shelf.Width, Bounds.Height - layout.Shelf.Y + 14), 0));
+        else
+            shape.Add(shelf);
 
         if (!SameShape(shape, _lastShape))
         {

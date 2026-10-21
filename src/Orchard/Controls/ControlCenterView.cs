@@ -30,7 +30,7 @@ public sealed class ControlCenterView : Control
     {
         _platform = platform;
         Width = PanelWidth;
-        Height = 372;
+        Height = 394;
         Focusable = true;
     }
 
@@ -107,7 +107,7 @@ public sealed class ControlCenterView : Control
         Tile(ctx, conn);
         var (wifiUp, wifiText) = Wifi();
         Toggle(ctx, new Point(conn.X + 12, conn.Y + 12), Glyph.Wifi, "Wi-Fi", wifiText, wifiUp, () => _platform.Launch("ms-settings:network-wifi"));
-        Toggle(ctx, new Point(conn.X + 12, conn.Y + 58), Glyph.Bluetooth, "Bluetooth", "Settings", true, () => _platform.Launch("ms-settings:bluetooth"));
+        Toggle(ctx, new Point(conn.X + 12, conn.Y + 58), Glyph.Bluetooth, "Bluetooth", "Settings", false, () => _platform.Launch("ms-settings:bluetooth"));
         Toggle(ctx, new Point(conn.X + 12, conn.Y + 104), Glyph.Airplane, "Airplane", "Settings", false, () => _platform.Launch("ms-settings:network-airplanemode"));
 
         // --- Focus + Mirroring (right) ----------------------------------------------------------
@@ -137,9 +137,9 @@ public sealed class ControlCenterView : Control
 
         // --- Small modules -----------------------------------------------------------------------
         double third = (w - TileGap * 2) / 3;
-        SmallTile(ctx, new Rect(Pad, y, third, 44), Glyph.Moon, "Dark Mode", _platform.DarkMode, () => _platform.DarkMode = !_platform.DarkMode);
-        SmallTile(ctx, new Rect(Pad + third + TileGap, y, third, 44), Glyph.Lock, "Lock", false, () => { Dismissed?.Invoke(); _platform.Run(SystemAction.LockScreen); });
-        SmallTile(ctx, new Rect(Pad + (third + TileGap) * 2, y, third, 44), Glyph.Gear, "Settings", false, () => { Dismissed?.Invoke(); _platform.Run(SystemAction.SystemSettings); });
+        SmallTile(ctx, new Rect(Pad, y, third, 66), Glyph.Moon, "Dark Mode", _platform.DarkMode, () => _platform.DarkMode = !_platform.DarkMode);
+        SmallTile(ctx, new Rect(Pad + third + TileGap, y, third, 66), Glyph.Lock, "Lock", false, () => { Dismissed?.Invoke(); _platform.Run(SystemAction.LockScreen); });
+        SmallTile(ctx, new Rect(Pad + (third + TileGap) * 2, y, third, 66), Glyph.Gear, "Settings", false, () => { Dismissed?.Invoke(); _platform.Run(SystemAction.SystemSettings); });
     }
 
     private void Tile(DrawingContext ctx, Rect r) =>
@@ -151,13 +151,15 @@ public sealed class ControlCenterView : Control
 
     private void Toggle(DrawingContext ctx, Point at, Glyph glyph, string title, string subtitle, bool on, Action action, Color? accent = null)
     {
+        var hit = new Rect(at.X - 6, at.Y - 5, 146, 44);
+        if (_hover is { } h && hit.Contains(h)) ctx.DrawRectangle(Palette.Brush(Palette.Hover), null, new RoundedRect(hit, 12));
         var circle = new Rect(at.X, at.Y, 34, 34);
         var fill = on ? (accent ?? Palette.Accent) : (Palette.Dark ? Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x24, 0, 0, 0));
         ctx.DrawEllipse(Palette.Brush(fill), null, circle.Center, 17, 17);
         Glyphs.Draw(ctx, glyph, circle.Deflate(9), on ? Colors.White : Palette.Text, 2);
         ctx.DrawText(Shapes.Text(title, 13, Palette.Text, FontWeight.SemiBold), new Point(at.X + 42, at.Y + 1));
         ctx.DrawText(Shapes.Text(subtitle, 11, Palette.TextSecondary), new Point(at.X + 42, at.Y + 18));
-        _buttons.Add((new Rect(at.X, at.Y, 140, 34), action));
+        _buttons.Add((hit, action));
     }
 
     private void SmallTile(DrawingContext ctx, Rect r, Glyph glyph, string title, bool on, Action action)
@@ -165,10 +167,12 @@ public sealed class ControlCenterView : Control
         bool hot = _hover is { } h && r.Contains(h);
         Tile(ctx, r);
         if (hot) ctx.DrawRectangle(Palette.Brush(Palette.Hover), null, new RoundedRect(r, 16));
-        var dot = new Rect(r.X + 8, r.Center.Y - 13, 26, 26);
-        ctx.DrawEllipse(Palette.Brush(on ? Palette.Accent : (Palette.Dark ? Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x24, 0, 0, 0))), null, dot.Center, 13, 13);
-        Glyphs.Draw(ctx, glyph, dot.Deflate(6.5), on ? Colors.White : Palette.Text, 2);
-        ctx.DrawText(Shapes.Text(title, 11, Palette.Text, FontWeight.Medium), new Point(dot.Right + 6, r.Center.Y - 7));
+        // Icon above, label centred below — fits any label in a third of the panel without touching the edges.
+        var dot = new Rect(r.Center.X - 14, r.Y + 9, 28, 28);
+        ctx.DrawEllipse(Palette.Brush(on ? Palette.Accent : (Palette.Dark ? Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x24, 0, 0, 0))), null, dot.Center, 14, 14);
+        Glyphs.Draw(ctx, glyph, dot.Deflate(7), on ? Colors.White : Palette.Text, 2);
+        var label = Shapes.Text(title, 11, Palette.Text, FontWeight.Medium);
+        ctx.DrawText(label, new Point(r.Center.X - label.Width / 2, dot.Bottom + 5));
         _buttons.Add((r, action));
     }
 

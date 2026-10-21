@@ -96,7 +96,14 @@ Shot("11-dark-mode", scene =>
     scene.Dock.SimulatePointer(DockX(scene, "photos"), Find(scene, "photos"));
 }, dark: true);
 
-Shot("13-dark-control-center", scene => scene.OpenControlCenter(), dark: true);
+// As it looks on a real Windows desktop: solid menu bar, denser glass (no compositor blur behind the dock).
+Shot("13-dark-control-center", scene =>
+{
+    Palette.Solid = true;
+    scene.MenuBar.Solid = true;
+    scene.OpenControlCenter();
+}, dark: true);
+Palette.Solid = false;
 
 Shot("14-dark-spotlight", scene => scene.OpenSpotlightView("ca"), dark: true);
 

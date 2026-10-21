@@ -41,8 +41,6 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private readonly WeatherService _weather;
     private int _appearancePoll;
     private PixelRect _dockRect, _widgetsRect;
-    private bool _dockExpanded;
-    private DateTime _dockExpandedUntil;
     private int _placementPoll;
 
     private ShellWindow? _popup;
@@ -104,9 +102,8 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _dock = new DockControl { IconSize = settings.IconSize, MaxScale = settings.MagnifiedScale, Magnify = settings.Magnification };
         _dockWindow = new ShellWindow(activatable: false) { Content = _dock, Title = "Orchard Dock" };
         _dock.Items = platform.DockApps;
-        // The dock window hugs the shelf and only grows (upwards and sideways) while you hover it, so it never
-        // blocks clicks on the strip of screen around it. See UpdateDockWindow.
-        _dockRect = DockRect(expanded: false);
+        // Fixed size; it clips itself to the shelf at rest so it never blocks clicks around it. See UpdateDockWindow.
+        _dockRect = DockRect(expanded: true);
         _dockWindow.PlaceAt(_dockRect);
         _dock.ItemClicked += OnDockClick;
         _dock.ItemContextRequested += OnDockContext;
@@ -174,8 +171,8 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private static Native.RECT ToRect(PixelRect r) => new(r.X, r.Y, r.Right, r.Bottom);
 
     /// <summary>
-    /// The dock window's rectangle in pixels, centred at the bottom of the monitor. At rest it is exactly the shelf;
-    /// expanded, it adds headroom for magnified icons and the hover label.
+    /// The dock's rectangle in pixels, centred at the bottom of the monitor: the shelf alone (for "does a window
+    /// overlap the dock"), or with headroom for magnified icons and the hover label (the dock window's size).
     /// </summary>
     private PixelRect DockRect(bool expanded)
     {
@@ -186,25 +183,18 @@ public sealed class ShellHost : IShellCommands, IDisposable
         return new PixelRect(_monitor.X + (_monitor.Width - pw) / 2, _monitor.Bottom - ph, pw, ph);
     }
 
-    private void UpdateDockWindow(PixelRect rest, PixelPoint pointer)
+    /// <summary>
+    /// The dock window has a fixed size (room for magnified icons and the hover label) and clips itself to what the
+    /// dock reports via <see cref="DockControl.ShapeChanged"/> — just the shelf at rest — so it never needs resizing,
+    /// which is what made it jump. Once fully slid away it is hidden outright.
+    /// </summary>
+    private void UpdateDockWindow()
     {
-        // Fully slid away: hide the window outright so nothing at the bottom edge is blocked.
         if (_dock.HiddenTarget == 1 && _dock.Hidden > 0.98)
         {
             if (_dockWindow.IsVisible) _dockWindow.Hide();
-            return;
         }
-        var expandedRect = DockRect(expanded: true);
-        bool wantExpand = _dock.Hidden < 0.5 &&
-                          (rest.Contains(pointer) || (_dockExpanded && expandedRect.Contains(pointer)) || _dock.IsMagnified || _popupIsDockMenu);
-        // Grow immediately, shrink only after things have been still for a moment, so the window doesn't flap.
-        if (wantExpand) _dockExpandedUntil = DateTime.UtcNow.AddMilliseconds(400);
-        bool expand = wantExpand || (_dockExpanded && DateTime.UtcNow < _dockExpandedUntil && _dock.Hidden < 0.5);
-        var want = expand ? expandedRect : rest;
-        if (want == _dockRect) return;
-        _dockRect = want;
-        _dockExpanded = expand;
-        _dockWindow.EnsurePlacement(want);
+        else if (!_dockWindow.IsVisible) _dockWindow.Show();
     }
 
     /// <summary>Widgets live on the desktop layer: keep them beneath every app window.</summary>
@@ -274,7 +264,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
             if (dockTarget == 0 && !_dockWindow.IsVisible) _dockWindow.Show();
             _dock.Items = _dock.Items; // restart the animation loop
         }
-        UpdateDockWindow(rest, pointer);
+        UpdateDockWindow();
 
         // Windows sometimes nudges borderless windows (e.g. when the menu bar's app-bar changes the work area).
         if (++_placementPoll % 30 == 0)
@@ -445,7 +435,8 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private void ShowPopup(Control content, PixelPoint at, bool dockMenu = false, PixelSize? size = null)
     {
         ClosePopup();
-        var window = new ShellWindow(activatable: true) { Content = content, Title = "Orchard" };
+        // Untitled on purpose: some Windows builds briefly paint a frameless window's title while it is being created.
+        var window = new ShellWindow(activatable: true) { Content = content, Title = "", Opacity = 0 };
         if (size is { } sz) window.PlaceAt(new PixelRect(at, sz));
         else
         {
@@ -459,6 +450,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         window.Deactivated += (_, _) => { if (_popup == window) ClosePopup(); };
         window.Opened += (_, _) =>
         {
+            FadeIn(window);
             window.EnableBlur(roundCorners: true);
             window.Activate();
             if (content is SpotlightView sv) sv.FocusInput();
@@ -469,6 +461,19 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _popupIsDockMenu = dockMenu;
         window.Show();
         if (content is not LaunchpadView) ApplyRoundedShape(window, content);
+    }
+
+    /// <summary>Popovers fade in over ~120 ms instead of popping, like the real thing.</summary>
+    private static void FadeIn(Window window)
+    {
+        var start = DateTime.UtcNow;
+        void Frame(TimeSpan _)
+        {
+            double t = Math.Min(1, (DateTime.UtcNow - start).TotalMilliseconds / 120);
+            window.Opacity = DockMath.EaseOut(t);
+            if (t < 1 && window.IsVisible) window.RequestAnimationFrame(Frame);
+        }
+        window.RequestAnimationFrame(Frame);
     }
 
     private static void ApplyRoundedShape(ShellWindow window, Control content)

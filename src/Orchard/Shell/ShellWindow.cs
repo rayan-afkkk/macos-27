@@ -31,6 +31,16 @@ public class ShellWindow : Window
             uint add = (uint)Native.WS_EX_TOOLWINDOW | (_activatable ? 0 : (uint)Native.WS_EX_NOACTIVATE);
             uint remove = (uint)Native.WS_EX_APPWINDOW;
             Win32Properties.AddWindowStylesCallback(this, (style, ex) => (style, (ex | add) & ~remove));
+            // Windows enforces a minimum window height (~36 px) that would make the 28 px menu bar's window taller than
+            // the bar and leave a gap. Lift the minimum so shell windows are exactly the size we ask for.
+            Win32Properties.AddWndProcHookCallback(this, (nint hwnd, uint msg, nint wParam, nint lParam, ref bool handled) =>
+            {
+                if (msg != 0x0024 /* WM_GETMINMAXINFO */) return 0;
+                Marshal.WriteInt32(lParam, 24, 1); // MINMAXINFO.ptMinTrackSize.x
+                Marshal.WriteInt32(lParam, 28, 1); // MINMAXINFO.ptMinTrackSize.y
+                handled = true;
+                return 0;
+            });
         }
     }
 

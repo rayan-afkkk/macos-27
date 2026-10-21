@@ -42,6 +42,7 @@ public sealed class MenuBarView : Control
     {
         _platform = platform;
         Height = BarHeight;
+        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
         _clock = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => InvalidateVisual());
         AttachedToVisualTree += (_, _) => _clock.Start();
         DetachedFromVisualTree += (_, _) => _clock.Stop();
@@ -72,9 +73,10 @@ public sealed class MenuBarView : Control
             _status.Add((item, new Rect(right - 32, 3, 32, BarHeight - 6)));
             right -= 34;
         }
-        if (_platform.Battery != null)
+        if (_platform.Battery is { } battery)
         {
-            double bw = 62;
+            // Text width + gap + the 26 px battery glyph: never let "100%" run into the icon.
+            double bw = Shapes.Text($"{battery.Percent}%", 12, Colors.White, FontWeight.Medium).Width + 6 + 6 + 26 + 4;
             _status.Add((StatusItem.Battery, new Rect(right - bw, 3, bw, BarHeight - 6)));
         }
     }
@@ -157,7 +159,7 @@ public sealed class MenuBarView : Control
                 {
                     var pct = Shapes.Text($"{b.Percent}%", 12, ink, FontWeight.Medium);
                     ctx.DrawText(pct, new Point(rect.X + 6, rect.Center.Y - pct.Height / 2));
-                    var icon = new Rect(rect.Right - 30, rect.Center.Y - 9, 26, 18);
+                    var icon = new Rect(rect.X + 6 + pct.Width + 6, rect.Center.Y - 9, 26, 18);
                     Glyphs.Draw(ctx, Glyph.Battery, icon, ink, 1.4);
                     break;
                 }
