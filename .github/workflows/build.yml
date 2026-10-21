@@ -79,3 +79,48 @@ jobs:
         with:
           name: ui-screenshots
           path: out/*.png
+
+  # Every successful push to the default branch becomes a GitHub Release, so the README's download button
+  # (releases/latest/download/OrchardSetup.exe) always serves the newest build.
+  release:
+    needs: windows
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        run: |
+          base=$(grep -oP '(?<=<Version>)[^<]+' src/Orchard/Orchard.csproj)
+          echo "tag=v${base}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "name=Orchard ${base} (build ${{ github.run_number }})" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: OrchardSetup
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Orchard-win-x64
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: |
+            dist/OrchardSetup.exe
+            dist/Orchard.exe
+          body: |
+            **Install:** download `OrchardSetup.exe` and run it (per-user, no admin needed).
+            Windows SmartScreen may warn because the installer isn't code-signed: click **More info → Run anyway**.
+
+            **Portable:** `Orchard.exe` runs without installing. Use `Orchard.exe --preview` to try it in a window first.
+
+            Quit any time with **Ctrl+Alt+Shift+O**. The Windows taskbar always comes back.

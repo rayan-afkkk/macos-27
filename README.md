@@ -4,6 +4,14 @@ A macOS-style desktop shell for **Windows 10 and 11**. It doesn't replace Window
 the feel of a Mac desktop: a glass dock with magnification, a real menu bar, red/yellow/green window buttons,
 the genie minimize effect, Spotlight, Launchpad and Control Center.
 
+<p align="center">
+  <a href="https://github.com/rayan-afkkk/macos-27/releases/latest/download/OrchardSetup.exe">
+    <img src="https://img.shields.io/badge/Download%20for%20Windows-OrchardSetup.exe-0A84FF?style=for-the-badge&logo=windows&logoColor=white" alt="Download Orchard for Windows">
+  </a>
+  <br>
+  <sub>Windows 10 &amp; 11 · free · <a href="https://github.com/rayan-afkkk/macos-27/releases/latest">all downloads &amp; portable .exe</a></sub>
+</p>
+
 ![Desktop](docs/screenshots/01-desktop.png)
 
 ▶ **[Watch the promo video](docs/orchard-promo.mp4)**: 36 s, rendered frame by frame from Orchard's own UI (`docs/orchard-promo.mp4`).
@@ -36,17 +44,18 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 
 ## Install
 
-1. Open the latest green run under [Actions](https://github.com/rayan-afkkk/macos-27/actions) and download
-   **OrchardSetup** from its *Artifacts* section.
-2. Unzip it and run `OrchardSetup.exe`. It installs just for you (no admin), adds Orchard to the Start menu, and can
-   start Orchard when you sign in.
+1. Click **Download for Windows** at the top of this page. It downloads `OrchardSetup.exe` from the
+   [latest release](https://github.com/rayan-afkkk/macos-27/releases/latest).
+2. Run it. It installs just for you (no admin), adds Orchard to the Start menu, and can start Orchard when you
+   sign in.
 3. Windows SmartScreen may say "Windows protected your PC" because the installer isn't code-signed. Click
    **More info → Run anyway**.
 
 The Start menu gets three entries: **Orchard**, **Orchard (try it in a window)** and **Restore Windows taskbar**.
 Uninstalling from *Settings → Apps* stops Orchard and puts the taskbar back first.
 
-Prefer no installer? The **Orchard-win-x64** artifact is the same app as a single portable `Orchard.exe`.
+Prefer no installer? The [release page](https://github.com/rayan-afkkk/macos-27/releases/latest) also has the same
+app as a single portable `Orchard.exe`.
 
 **Build from source:**
 
