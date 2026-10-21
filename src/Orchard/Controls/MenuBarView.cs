@@ -125,9 +125,11 @@ public sealed class MenuBarView : Control
                 ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0xF4, 0x1A, 0x1A, 0x1D) : Color.FromArgb(0xF0, 0xF4, 0xF4, 0xF6)), null, new Rect(Bounds.Size));
             ctx.DrawLine(new Pen(Palette.Brush(Palette.Dark ? Color.FromArgb(0x60, 0, 0, 0) : Color.FromArgb(0x26, 0, 0, 0)), 1),
                 new Point(0, Bounds.Height - 0.5), new Point(Bounds.Width, Bounds.Height - 0.5));
-            ink = Palette.Dark ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);
+            // Translucent bar: like macOS, use white text when the wallpaper behind it is dark, even in light mode.
+            bool darkBehind = Palette.Dark || Glass.PerceivedLuminance(this, new Rect(Bounds.Size), Palette.GlassTint) is < 0.5;
+            ink = darkBehind ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);
             shadow = Colors.Transparent;
-            highlight = Palette.Dark ? Color.FromArgb(0x38, 255, 255, 255) : Color.FromArgb(0x1C, 0, 0, 0);
+            highlight = darkBehind ? Color.FromArgb(0x38, 255, 255, 255) : Color.FromArgb(0x1C, 0, 0, 0);
         }
         else
         {

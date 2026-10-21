@@ -87,7 +87,7 @@ Everything is stored in `%APPDATA%\Orchard\settings.json`, which you can also ed
 {
   "Dock": "HideWhenOverlapped",        // AlwaysShow | HideWhenOverlapped | AlwaysAutoHide
   "MenuBar": "HideWhenMaximized",      // AlwaysShow | HideWhenMaximized | HideInFullscreen | AlwaysAutoHide
-  "IconSize": 54,
+  "IconSize": 46,
   "Magnification": true,
   "MagnifiedScale": 1.75,
   "MinimizeEffect": "Genie",           // Genie | Scale | System

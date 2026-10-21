@@ -40,7 +40,7 @@ public sealed record PinnedApp(string Name, string Target, string? Icon = null, 
 
 public sealed class OrchardSettings
 {
-    public const int CurrentSchema = 2;
+    public const int CurrentSchema = 3;
 
     /// <summary>Lets <see cref="SettingsStore.Load"/> move older settings files onto new defaults once.</summary>
     public int? SchemaVersion { get; set; }
@@ -48,7 +48,7 @@ public sealed class OrchardSettings
     public DockVisibility Dock { get; set; } = DockVisibility.HideWhenOverlapped;
     public MenuBarVisibility MenuBar { get; set; } = MenuBarVisibility.HideWhenMaximized;
 
-    public double IconSize { get; set; } = 54;
+    public double IconSize { get; set; } = 46;
     public bool Magnification { get; set; } = true;
     /// <summary>Largest scale an icon reaches under the pointer.</summary>
     public double MagnifiedScale { get; set; } = 1.75;
@@ -130,13 +130,20 @@ public static class SettingsStore
 
     /// <summary>
     /// Schema 2 (v0.3): the menu bar hides for maximized apps and the red/yellow/green overlay is off by default.
+    /// Schema 3 (v0.3.4): default dock icon size 54 → 46.
     /// Files written by earlier versions saved the old defaults explicitly, so they are moved over once.
     /// </summary>
     internal static bool Migrate(OrchardSettings s)
     {
-        if ((s.SchemaVersion ?? 0) >= OrchardSettings.CurrentSchema) return false;
-        if (s.MenuBar == MenuBarVisibility.HideInFullscreen) s.MenuBar = MenuBarVisibility.HideWhenMaximized;
-        s.TrafficLights = false;
+        int from = s.SchemaVersion ?? 0;
+        if (from >= OrchardSettings.CurrentSchema) return false;
+        if (from < 2)
+        {
+            if (s.MenuBar == MenuBarVisibility.HideInFullscreen) s.MenuBar = MenuBarVisibility.HideWhenMaximized;
+            s.TrafficLights = false;
+        }
+        // Schema 3 (v0.3.4): slimmer dock. Only move people who were still on the old default size.
+        if (from < 3 && Math.Abs(s.IconSize - 54) < 0.01) s.IconSize = 46;
         s.SchemaVersion = OrchardSettings.CurrentSchema;
         return true;
     }

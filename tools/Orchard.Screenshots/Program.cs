@@ -121,6 +121,18 @@ Shot("16-desktop-glass", scene =>
 }, dark: true);
 Glass.DesktopBackdrop = null;
 
+// Light mode on the same dark wallpaper: translucent glass, white menu-bar text chosen from the wallpaper.
+Shot("17-desktop-glass-light", scene =>
+{
+    var wall = new WallpaperArt { Dark = true }.Render(new PixelSize(360, 225), 0.25);
+    Glass.PreviewBackdrop = null;
+    Glass.DesktopBackdrop = Orchard.Rendering.Blur.Apply(wall, 5);
+    Glass.DesktopBackdropMonitor = new PixelRect(0, 0, 1440, 900);
+    scene.MenuBar.Solid = true;
+    scene.Dock.SimulatePointer(DockX(scene, "maps"), Find(scene, "maps"));
+});
+Glass.DesktopBackdrop = null;
+
 TrafficLightCloseup();
 SettingsShot();
 

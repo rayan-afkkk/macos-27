@@ -239,6 +239,14 @@ public class AppSearchTests
 public class SettingsTests
 {
     [Fact]
+    public void Custom_dock_size_survives_migration()
+    {
+        var s = SettingsStore.Deserialize("""{ "SchemaVersion": 2, "IconSize": 62 }""")!;
+        Assert.True(SettingsStore.Migrate(s));
+        Assert.Equal(62, s.IconSize);
+    }
+
+    [Fact]
     public void Old_settings_files_move_to_new_defaults_once()
     {
         // A v0.2 file: no SchemaVersion, old defaults written out explicitly.
@@ -247,6 +255,9 @@ public class SettingsTests
         Assert.Equal(MenuBarVisibility.HideWhenMaximized, old.MenuBar);
         Assert.False(old.TrafficLights);
         Assert.Equal(DockVisibility.AlwaysShow, old.Dock); // unrelated choices are kept
+
+        // Schema 3: the old default dock size moves to the new, slimmer default...
+        Assert.Equal(46, old.IconSize);
 
         // Once migrated, the user's own choices stick.
         old.TrafficLights = true;

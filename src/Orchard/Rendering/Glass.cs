@@ -26,7 +26,7 @@ public static class Glass
     public static Bitmap? DesktopBackdrop { get; set; }
     public static PixelRect DesktopBackdropMonitor { get; set; }
 
-    public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true)
+    public static void Draw(DrawingContext ctx, Visual owner, RoundedRect shape, bool strong = false, bool shadow = true, bool panel = false)
     {
         // No soft shadow on the real desktop: shell windows clip to their own shapes, so it would barely show, and
         // a large blurred shadow redrawn every animation frame is the single most expensive thing glass can do.
@@ -54,7 +54,7 @@ public static class Glass
             }
         }
 
-        var tint = strong ? Palette.GlassTintStrong : Palette.GlassTint;
+        var tint = strong ? Palette.GlassTintStrong : panel ? Palette.GlassTintPanel : Palette.GlassTint;
         DrawSurface(ctx, shape, tint);
     }
 
@@ -75,6 +75,46 @@ public static class Glass
         using (ctx.PushClip(shape))
         using (ctx.PushRenderOptions(new RenderOptions { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality }))
             ctx.DrawImage(wallpaper, src, dst);
+    }
+
+    /// <summary>
+    /// How bright the glass at <paramref name="rect"/> (in <paramref name="owner"/>'s coordinates) will look: the blurred
+    /// backdrop's average luminance with the tint on top, 0–1. Null when there is no backdrop to sample. Lets the
+    /// translucent menu bar pick dark or white text the way macOS does over light or dark wallpapers.
+    /// </summary>
+    public static unsafe double? PerceivedLuminance(Visual owner, Rect rect, Color tint)
+    {
+        Bitmap? bitmap = null;
+        Rect src = default;
+        if (DesktopBackdrop is { } wallpaper && Avalonia.Controls.TopLevel.GetTopLevel(owner) != null)
+        {
+            var tl = owner.PointToScreen(rect.TopLeft);
+            var br = owner.PointToScreen(rect.BottomRight);
+            var mon = DesktopBackdropMonitor;
+            if (mon.Width <= 0) return null;
+            double kx = wallpaper.PixelSize.Width / (double)mon.Width, ky = wallpaper.PixelSize.Height / (double)mon.Height;
+            src = new Rect((tl.X - mon.X) * kx, (tl.Y - mon.Y) * ky, (br.X - tl.X) * kx, (br.Y - tl.Y) * ky);
+            bitmap = wallpaper;
+        }
+        else if (PreviewBackdrop is { } preview && owner.GetVisualRoot() is Visual root && owner.TranslatePoint(rect.TopLeft, root) is { } o)
+        {
+            double s = PreviewBackdropScale;
+            src = new Rect(o.X * s, o.Y * s, rect.Width * s, rect.Height * s);
+            bitmap = preview;
+        }
+        if (bitmap == null) return null;
+
+        var px = new PixelRect((int)src.X, (int)src.Y, Math.Max(1, (int)src.Width), Math.Max(1, (int)src.Height))
+            .Intersect(new PixelRect(bitmap.PixelSize));
+        if (px.Width <= 0 || px.Height <= 0) return null;
+        var buffer = new byte[px.Width * px.Height * 4];
+        fixed (byte* p = buffer) bitmap.CopyPixels(px, (nint)p, buffer.Length, px.Width * 4);
+        double sum = 0;
+        for (int i = 0; i < buffer.Length; i += 4)
+            sum += (0.0722 * buffer[i] + 0.7152 * buffer[i + 1] + 0.2126 * buffer[i + 2]) / 255; // BGRA
+        double wall = sum / (buffer.Length / 4);
+        double a = tint.A / 255.0, tintLum = (0.2126 * tint.R + 0.7152 * tint.G + 0.0722 * tint.B) / 255;
+        return wall * (1 - a) + tintLum * a;
     }
 
     private static void DrawSurface(DrawingContext ctx, RoundedRect shape, Color tint)

@@ -111,7 +111,7 @@ public sealed class WidgetBoard : Control
             if (kind == WidgetKind.Weather) DrawWeather(ctx, r, shape, now);
             else
             {
-                Glass.Draw(ctx, this, shape, strong: false, shadow: false);
+                Glass.Draw(ctx, this, shape, strong: false, shadow: false, panel: true);
                 switch (kind)
                 {
                     case WidgetKind.Clock: DrawClock(ctx, r, now); break;

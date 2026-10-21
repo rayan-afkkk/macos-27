@@ -40,13 +40,18 @@ public static class Palette
     {
         (true, false) => Color.FromArgb(0xC8, 0x0C, 0x0C, 0x0E),
         (true, true) => Color.FromArgb(0xE6, 0x16, 0x16, 0x19),
-        (false, false) => Color.FromArgb(0x5C, 0xFF, 0xFF, 0xFF),
+        // Light glass: mostly see-through — the wallpaper's colour comes through, frosted by the blur, with a
+        // faint white veil and a bright rim (see GlassRimTop). This is the macOS dock / menu bar look.
+        (false, false) => Color.FromArgb(0x3A, 0xFF, 0xFF, 0xFF),
         (false, true) => Color.FromArgb(0xD6, 0xF4, 0xF4, 0xF7),
     };
     public static Color GlassTintStrong => Dark ? Color.FromArgb(Solid ? (byte)0xF2 : (byte)0xE8, 0x16, 0x16, 0x18) : Color.FromArgb(Solid ? (byte)0xEE : (byte)0xC4, 0xF6, 0xF6, 0xF8);
-    public static Color GlassRimTop => Dark ? Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF);
-    public static Color GlassRimBottom => Dark ? Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x50, 0xFF, 0xFF, 0xFF);
-    public static Color GlassOutline => Dark ? Color.FromArgb(0x99, 0x00, 0x00, 0x00) : Color.FromArgb(0x26, 0x00, 0x00, 0x00);
+    public static Color GlassRimTop => Dark ? Color.FromArgb(0x48, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF);
+    public static Color GlassRimBottom => Dark ? Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF);
+    public static Color GlassOutline => Dark ? Color.FromArgb(0x99, 0x00, 0x00, 0x00) : Color.FromArgb(0x1C, 0x00, 0x00, 0x00);
+
+    /// <summary>Frostier glass for panels that carry text over the wallpaper (widgets).</summary>
+    public static Color GlassTintPanel => Dark ? Color.FromArgb(0xC8, 0x14, 0x14, 0x16) : Color.FromArgb(Solid ? (byte)0xD6 : (byte)0xA8, 0xF7, 0xF7, 0xF9);
 
     /// <summary>Background of a module inside a glass panel (Control Center tiles, widget sub-areas).</summary>
     public static Color Tile => Dark ? Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF);

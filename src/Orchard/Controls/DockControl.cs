@@ -17,11 +17,11 @@ namespace Orchard.Controls;
 /// </summary>
 public sealed class DockControl : Control
 {
-    public double IconSize { get; set; } = 54;
+    public double IconSize { get; set; } = 46;
     public double MaxScale { get; set; } = 1.75;
     public bool Magnify { get; set; } = true;
 
-    public const double Padding = 6, Gap = 6, BottomMargin = 6, SeparatorWidth = 1;
+    public const double Padding = 5, Gap = 5, BottomMargin = 5, SeparatorWidth = 1;
 
     /// <summary>0 = fully shown, 1 = slid off the bottom of the screen.</summary>
     public double HiddenTarget { get; set; }
@@ -280,6 +280,11 @@ public sealed class DockControl : Control
         Glass.Draw(ctx, this, shelf);
         shape.Add(shelf);
 
+        // Translucent light glass over a dark wallpaper reads dark: switch the dots and dividers to white, like macOS.
+        bool darkBehind = Palette.Dark || Glass.PerceivedLuminance(this, layout.Shelf, Palette.GlassTint) is < 0.5;
+        var separatorColor = darkBehind ? Color.FromArgb(0x40, 255, 255, 255) : Palette.Separator;
+        var dotColor = darkBehind ? Color.FromArgb(0xE0, 255, 255, 255) : Color.FromArgb(0xC0, 0x1D, 0x1D, 0x1F);
+
         var separators = Separators();
         for (int i = 0; i < _items.Count; i++)
         {
@@ -289,7 +294,7 @@ public sealed class DockControl : Control
             if (separators.Contains(i))
             {
                 double x = r.X - Gap - SeparatorWidth / 2 - Gap / 2;
-                ctx.DrawLine(new Pen(Palette.Brush(Palette.Separator), SeparatorWidth),
+                ctx.DrawLine(new Pen(Palette.Brush(separatorColor), SeparatorWidth),
                     new Point(x, layout.Shelf.Y + Padding + 4), new Point(x, layout.Shelf.Bottom - Padding - 4));
             }
 
@@ -300,7 +305,7 @@ public sealed class DockControl : Control
             if (app.IsRunning)
             {
                 var dot = new Point(r.Center.X, layout.Shelf.Bottom - 3.2);
-                ctx.DrawEllipse(Palette.Brush(Palette.Dark ? Color.FromArgb(0xE0, 255, 255, 255) : Color.FromArgb(0xC0, 0x1D, 0x1D, 0x1F)), null, dot, 2, 2);
+                ctx.DrawEllipse(Palette.Brush(dotColor), null, dot, 2, 2);
             }
 
         }
