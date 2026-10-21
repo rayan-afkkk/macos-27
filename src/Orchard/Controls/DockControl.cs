@@ -17,11 +17,11 @@ namespace Orchard.Controls;
 /// </summary>
 public sealed class DockControl : Control
 {
-    public double IconSize { get; set; } = 46;
+    public double IconSize { get; set; } = 50;
     public double MaxScale { get; set; } = 1.75;
     public bool Magnify { get; set; } = true;
 
-    public const double Padding = 5, Gap = 5, BottomMargin = 5, SeparatorWidth = 1;
+    public const double Padding = 6, Gap = 5, BottomMargin = 5, SeparatorWidth = 1;
 
     /// <summary>0 = fully shown, 1 = slid off the bottom of the screen.</summary>
     public double HiddenTarget { get; set; }

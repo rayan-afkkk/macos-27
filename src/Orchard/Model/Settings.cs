@@ -48,7 +48,7 @@ public sealed record PinnedApp(string Name, string Target, string? Icon = null, 
 
 public sealed class OrchardSettings
 {
-    public const int CurrentSchema = 3;
+    public const int CurrentSchema = 4;
 
     /// <summary>Lets <see cref="SettingsStore.Load"/> move older settings files onto new defaults once.</summary>
     public int? SchemaVersion { get; set; }
@@ -56,7 +56,7 @@ public sealed class OrchardSettings
     public DockVisibility Dock { get; set; } = DockVisibility.HideWhenOverlapped;
     public MenuBarVisibility MenuBar { get; set; } = MenuBarVisibility.HideWhenMaximized;
 
-    public double IconSize { get; set; } = 46;
+    public double IconSize { get; set; } = 50;
     public bool Magnification { get; set; } = true;
     /// <summary>Largest scale an icon reaches under the pointer.</summary>
     public double MagnifiedScale { get; set; } = 1.75;
@@ -140,7 +140,7 @@ public static class SettingsStore
 
     /// <summary>
     /// Schema 2 (v0.3): the menu bar hides for maximized apps and the red/yellow/green overlay is off by default.
-    /// Schema 3 (v0.3.4): default dock icon size 54 → 46.
+    /// Schema 3 (v0.3.4): default dock icon size 54 → 46. Schema 4 (v0.3.7): 46 → 50.
     /// Files written by earlier versions saved the old defaults explicitly, so they are moved over once.
     /// </summary>
     internal static bool Migrate(OrchardSettings s)
@@ -154,6 +154,8 @@ public static class SettingsStore
         }
         // Schema 3 (v0.3.4): slimmer dock. Only move people who were still on the old default size.
         if (from < 3 && Math.Abs(s.IconSize - 54) < 0.01) s.IconSize = 46;
+        // Schema 4 (v0.3.7): 46 turned out a touch small; the default is now 50.
+        if (from < 4 && Math.Abs(s.IconSize - 46) < 0.01) s.IconSize = 50;
         s.SchemaVersion = OrchardSettings.CurrentSchema;
         return true;
     }

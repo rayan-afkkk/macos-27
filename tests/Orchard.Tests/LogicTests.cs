@@ -257,7 +257,7 @@ public class SettingsTests
         Assert.Equal(DockVisibility.AlwaysShow, old.Dock); // unrelated choices are kept
 
         // Schema 3: the old default dock size moves to the new, slimmer default...
-        Assert.Equal(46, old.IconSize);
+        Assert.Equal(50, old.IconSize);
 
         // Once migrated, the user's own choices stick.
         old.TrafficLights = true;
