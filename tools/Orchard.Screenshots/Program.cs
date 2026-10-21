@@ -12,6 +12,14 @@ using Orchard.Theme;
 // Renders Orchard's real UI controls headlessly (Skia, no window system needed) into PNGs under docs/screenshots.
 // Usage: dotnet run --project tools/Orchard.Screenshots [output-dir]
 
+if (args.Length > 0 && args[0] == "--icon")
+{
+    AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
+    var root = FindRepoRoot();
+    AppIcon.Write(Path.Combine(root, "src", "Orchard", "Assets", "orchard.ico"), Path.Combine(root, "docs", "icon.png"));
+    return;
+}
+
 if (args.Length > 0 && args[0] == "--video")
 {
     AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).SetupWithoutStarting();
@@ -93,6 +101,7 @@ Shot("13-dark-control-center", scene => scene.OpenControlCenter(), dark: true);
 Shot("14-dark-spotlight", scene => scene.OpenSpotlightView("ca"), dark: true);
 
 TrafficLightCloseup();
+SettingsShot();
 
 Console.WriteLine($"Screenshots written to {outDir}");
 return;
@@ -144,6 +153,16 @@ void TrafficLightCloseup()
     bmp.Save(Path.Combine(outDir, "12-traffic-lights.png"));
     host.Close();
     window.Close();
+}
+
+void SettingsShot()
+{
+    Palette.Dark = false;
+    var w = new Orchard.Shell.SettingsWindow(new OrchardSettings { WeatherCity = "Lahore" }, canRestart: true);
+    w.Show();
+    Pump();
+    Save(w, new Size(w.Width, w.Height), "15-settings");
+    w.Close();
 }
 
 void Save(Control c, Size size, string name)

@@ -42,6 +42,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
     private int _appearancePoll;
     private PixelRect _dockRect, _widgetsRect;
     private bool _dockExpanded;
+    private DateTime _dockExpandedUntil;
     private int _placementPoll;
 
     private ShellWindow? _popup;
@@ -73,7 +74,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         if (settings.MinimizeEffect != MinimizeEffect.System) SystemState.SetMinimizeAnimation(false);
 
         // ---- menu bar ----
-        _menuBar = new MenuBarView(platform) { MenuTitles = MenuCatalog.Titles };
+        _menuBar = new MenuBarView(platform) { MenuTitles = MenuCatalog.Titles, Solid = true };
         _menuWindow = new ShellWindow(activatable: false) { Content = _menuBar, Title = "Orchard Menu Bar" };
         _menuWindow.PlaceAt(new PixelRect(_monitor.X, _monitor.Y, _monitor.Width, (int)Math.Ceiling(MenuBarView.BarHeight * _menuWindow.Scale)));
         _menuBar.MenuRequested += (i, _) => { if (i < 0) ClosePopup(); else OpenMenu(i); };
@@ -88,7 +89,11 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _menuWindow.Opened += (_, _) =>
         {
             if (settings.MenuBar != MenuBarVisibility.AlwaysAutoHide)
+            {
                 _appBar = new AppBar(_menuWindow.Handle, ToRect(_monitor), (int)Math.Ceiling(MenuBarView.BarHeight * _menuWindow.Scale));
+                // Windows that were already maximized still cover the new strip; give the work area a moment, then refit them.
+                DispatcherTimer.RunOnce(platform.FitAllMaximized, TimeSpan.FromMilliseconds(600));
+            }
             RegisterHotkeys();
         };
 
@@ -133,7 +138,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
                     settings.Widgets.Remove(kind);
                     SettingsStore.Save(settings);
                     widgets.Kinds = settings.Widgets.ToList();
-                }, OpenSettingsFile));
+                }, OpenSettings));
                 panel.Dismissed += ClosePopup;
                 double s = window.Scale;
                 ShowPopup(panel, new PixelPoint(window.Position.X + (int)((rect.X + 24) * s), window.Position.Y + (int)((rect.Y + 24) * s)));
@@ -150,8 +155,13 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Normal, (_, _) => Tick());
         _tick.Start();
 
-        // Explorer re-shows the taskbar after restarts, display changes and some Win-key shortcuts; quietly undo that.
-        _taskbarGuard = new DispatcherTimer(TimeSpan.FromSeconds(1.5), DispatcherPriority.Background, (_, _) =>
+        // Explorer re-shows the taskbar when the pointer touches the bottom edge (auto-hide), after restarts and on some
+        // Win-key shortcuts. Hide it the instant it appears (event hook), with a fast poll as a safety net.
+        platform.TaskbarShown += () =>
+        {
+            if (_settings.HideWindowsTaskbar && SystemState.TaskbarVisible()) SystemState.HideTaskbar();
+        };
+        _taskbarGuard = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) =>
         {
             if (_settings.HideWindowsTaskbar && SystemState.TaskbarVisible()) SystemState.HideTaskbar();
         });
@@ -182,8 +192,11 @@ public sealed class ShellHost : IShellCommands, IDisposable
             return;
         }
         var expandedRect = DockRect(expanded: true);
-        bool expand = _dock.Hidden < 0.5 &&
-                      (rest.Contains(pointer) || (_dockExpanded && expandedRect.Contains(pointer)) || _dock.IsMagnified || _popupIsDockMenu);
+        bool wantExpand = _dock.Hidden < 0.5 &&
+                          (rest.Contains(pointer) || (_dockExpanded && expandedRect.Contains(pointer)) || _dock.IsMagnified || _popupIsDockMenu);
+        // Grow immediately, shrink only after things have been still for a moment, so the window doesn't flap.
+        if (wantExpand) _dockExpandedUntil = DateTime.UtcNow.AddMilliseconds(400);
+        bool expand = wantExpand || (_dockExpanded && DateTime.UtcNow < _dockExpandedUntil && _dock.Hidden < 0.5);
         var want = expand ? expandedRect : rest;
         if (want == _dockRect) return;
         _dockRect = want;
@@ -291,6 +304,7 @@ public sealed class ShellHost : IShellCommands, IDisposable
         _menuBar.InvalidateVisual();
         PositionLights();
         SendWidgetsToBottom();
+        if (_platform.Foreground is { IsMaximized: true } fg && _appBar != null) _platform.FitMaximizedToWorkArea(fg.Handle);
     }
 
     private bool LightsWanted(out WindowInfo fg)
@@ -527,7 +541,17 @@ public sealed class ShellHost : IShellCommands, IDisposable
         if (_platform.Foreground is { } fg) _platform.ToggleZoom(fg.Handle);
     }
 
-    public void OpenSettingsFile() => _platform.Launch("notepad.exe", $"\"{SettingsStore.FilePath}\"");
+    private SettingsWindow? _settingsWindow;
+
+    /// <summary>Opens Orchard Settings on a copy of the settings, so Cancel really discards the edits.</summary>
+    public void OpenSettings()
+    {
+        ClosePopup();
+        if (_settingsWindow is { IsVisible: true }) { _settingsWindow.Activate(); return; }
+        var copy = SettingsStore.Deserialize(SettingsStore.Serialize(_settings)) ?? new OrchardSettings();
+        _settingsWindow = new SettingsWindow(copy, canRestart: true);
+        _settingsWindow.Show();
+    }
 
     public void QuitOrchard() => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
 

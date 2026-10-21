@@ -11,7 +11,7 @@ public interface IShellCommands
     void ZoomFront();
     void ToggleLaunchpad();
     void OpenSpotlight();
-    void OpenSettingsFile();
+    void OpenSettings();
     void QuitOrchard();
 }
 
@@ -37,7 +37,7 @@ public static class MenuCatalog
                 new("System Settings…", null, () => p.Run(SystemAction.SystemSettings)),
                 new("App Store…", null, () => p.Run(SystemAction.Store)),
                 sep,
-                new("Orchard Settings…", null, shell.OpenSettingsFile),
+                new("Orchard Settings…", null, shell.OpenSettings),
                 sep,
                 new("Force Quit…", "Ctrl+Shift+Esc", () => p.Run(SystemAction.ForceQuit)),
                 sep,

@@ -59,7 +59,7 @@ public sealed class DesktopScene : Canvas, IShellCommands
         SetLeft(Widgets, 24);
         SetTop(Widgets, MenuBarView.BarHeight + 18);
         Widgets.WidgetMenuRequested += (kind, rect) => ShowPopup(new MenuPanel(MenuCatalog.ForWidget(
-            () => Widgets.Kinds = Widgets.Kinds.Where(k => k != kind).ToList(), OpenSettingsFile)),
+            () => Widgets.Kinds = Widgets.Kinds.Where(k => k != kind).ToList(), OpenSettings)),
             24 + rect.X + 20, MenuBarView.BarHeight + 18 + rect.Y + 20);
         Children.Add(Widgets);
 
@@ -330,6 +330,10 @@ public sealed class DesktopScene : Canvas, IShellCommands
     public void ZoomFront() { if (ActiveWindow is { } w) SetMaximized(w, !w.Maximized); }
     public void ToggleLaunchpad() { if (_popup is LaunchpadView) ClosePopup(); else ShowLaunchpad(); }
     public void OpenSpotlight() => OpenSpotlightView();
-    public void OpenSettingsFile() { }
+    public void OpenSettings()
+    {
+        ClosePopup();
+        new SettingsWindow(SettingsStore.Deserialize(SettingsStore.Serialize(_settings)) ?? new OrchardSettings(), canRestart: false).Show();
+    }
     public void QuitOrchard() => (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
 }

@@ -47,7 +47,10 @@ internal static class SystemState
     /// </summary>
     public static void HideTaskbar()
     {
-        SetTaskbarState(Native.ABS_AUTOHIDE);
+        // Only touch the app-bar state when it isn't auto-hide yet: changing it shifts the work area every time.
+        var abd = new Native.APPBARDATA { cbSize = Marshal.SizeOf<Native.APPBARDATA>(), hWnd = Native.FindWindowW("Shell_TrayWnd", null) };
+        if (((int)Native.SHAppBarMessage(Native.ABM_GETSTATE, ref abd) & Native.ABS_AUTOHIDE) == 0)
+            SetTaskbarState(Native.ABS_AUTOHIDE);
         foreach (var tb in Taskbars())
             if (Native.IsWindowVisible(tb)) Native.ShowWindow(tb, Native.SW_HIDE);
     }

@@ -31,6 +31,8 @@ public sealed class MenuBarView : Control
     public int OpenIndex { get; set; } = -1;
     public StatusItem? OpenStatus { get; set; }
     public DateTime? FixedNow { get; set; }
+    /// <summary>Opaque bar with dark-on-light (or white-on-dark) text, used on the real desktop.</summary>
+    public bool Solid { get; set; }
 
     /// <summary>A menu should open under the given title; index -1 means close the open one.</summary>
     public event Action<int, Rect>? MenuRequested;
@@ -110,16 +112,30 @@ public sealed class MenuBarView : Control
     public override void Render(DrawingContext ctx)
     {
         Arrange();
-        // Scrim: just enough darkening at the top edge to keep white text legible over a bright wallpaper or window.
-        ctx.DrawRectangle(Shapes.Vertical(Color.FromArgb(0x40, 0, 0, 0), Color.FromArgb(0x08, 0, 0, 0)), null, new Rect(Bounds.Size));
-
-        var ink = Colors.White;
-        var shadow = Color.FromArgb(0x50, 0, 0, 0);
+        Color ink, shadow, highlight;
+        if (Solid)
+        {
+            // Solid frosted bar: on a real desktop windows can be dragged up under the bar, so it must be opaque.
+            ctx.DrawRectangle(Palette.Brush(Palette.Dark ? Color.FromArgb(0xF4, 0x1A, 0x1A, 0x1D) : Color.FromArgb(0xF0, 0xF4, 0xF4, 0xF6)), null, new Rect(Bounds.Size));
+            ctx.DrawLine(new Pen(Palette.Brush(Palette.Dark ? Color.FromArgb(0x60, 0, 0, 0) : Color.FromArgb(0x26, 0, 0, 0)), 1),
+                new Point(0, Bounds.Height - 0.5), new Point(Bounds.Width, Bounds.Height - 0.5));
+            ink = Palette.Dark ? Colors.White : Color.FromRgb(0x1D, 0x1D, 0x1F);
+            shadow = Colors.Transparent;
+            highlight = Palette.Dark ? Color.FromArgb(0x38, 255, 255, 255) : Color.FromArgb(0x1C, 0, 0, 0);
+        }
+        else
+        {
+            // Transparent bar over the wallpaper, with a scrim just dark enough to keep white text legible.
+            ctx.DrawRectangle(Shapes.Vertical(Color.FromArgb(0x40, 0, 0, 0), Color.FromArgb(0x08, 0, 0, 0)), null, new Rect(Bounds.Size));
+            ink = Colors.White;
+            shadow = Color.FromArgb(0x50, 0, 0, 0);
+            highlight = Color.FromArgb(0x40, 255, 255, 255);
+        }
 
         for (int i = 0; i < _titles.Count; i++)
         {
             var (title, rect, bold) = _titles[i];
-            if (i == OpenIndex) ctx.DrawRectangle(Palette.Brush(Color.FromArgb(0x40, 255, 255, 255)), null, new RoundedRect(rect, 6));
+            if (i == OpenIndex) ctx.DrawRectangle(Palette.Brush(highlight), null, new RoundedRect(rect, 6));
             if (i == 0)
             {
                 Glyphs.Draw(ctx, Glyph.Logo, rect.Deflate(new Thickness(7, 2)).Translate(new Vector(0, 0.6)), shadow, 1.4);
@@ -131,7 +147,7 @@ public sealed class MenuBarView : Control
 
         foreach (var (item, rect) in _status)
         {
-            if (item == OpenStatus) ctx.DrawRectangle(Palette.Brush(Color.FromArgb(0x40, 255, 255, 255)), null, new RoundedRect(rect, 6));
+            if (item == OpenStatus) ctx.DrawRectangle(Palette.Brush(highlight), null, new RoundedRect(rect, 6));
             switch (item)
             {
                 case StatusItem.Clock:

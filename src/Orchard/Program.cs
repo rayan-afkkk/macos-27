@@ -30,6 +30,14 @@ internal static class Program
             }
         }
 
+        // "Save & Restart" starts us with --after <pid>: wait for the old instance to let go first.
+        int after = Array.IndexOf(args, "--after");
+        if (after >= 0 && after + 1 < args.Length && int.TryParse(args[after + 1], out int oldPid))
+        {
+            try { System.Diagnostics.Process.GetProcessById(oldPid).WaitForExit(10_000); }
+            catch (ArgumentException) { /* already gone */ }
+        }
+
         bool preview = args.Contains("--preview") || !OperatingSystem.IsWindows();
         using var single = new Mutex(true, preview ? @"Local\OrchardPreview" : @"Local\OrchardShell", out bool first);
         if (!first) return 0;

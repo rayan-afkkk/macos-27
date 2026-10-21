@@ -24,8 +24,8 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 |---|---|
 | **Dock** | Glass shelf with a magnification wave, launch bounce, running-app dots, hover labels, pinned apps + running apps + Recycle Bin, and a right-click menu (Keep in Dock, Show in Explorer, Quit, the app's windows). Real app icons are pulled at 256 px. |
 | **Auto-hide** | The dock slides away when a window is maximized, fullscreen or dragged over it. Rest the pointer on the bottom edge to bring it back. In fullscreen the menu bar slides up and returns when you touch the top edge. |
-| **Windows taskbar** | Hidden while Orchard runs, so its reveal zone doesn't fight the dock's. It's **always restored**: on exit, by a watchdog process if Orchard crashes or is killed, and on the next launch if the PC lost power. |
-| **Menu bar** | Logo menu (About, Settings, Force Quit, Sleep/Restart/Shut Down, Lock), the **bold name of the app in front**, then File / Edit / View / Window / Help. Menu items send the standard shortcut (Copy → Ctrl+C) to the front app, so they work in almost any program. With a menu open, sliding along the bar switches menus. On the right: battery, Wi-Fi, Spotlight, Control Center, clock. It reserves its strip so maximized windows stop below it. |
+| **Windows taskbar** | Hidden while Orchard runs, so its reveal zone doesn't fight the dock's. If Windows tries to pop it back up, Orchard hides it again immediately. It's **always restored**: on exit, by a watchdog process if Orchard crashes or is killed, and on the next launch if the PC lost power. |
+| **Menu bar** | Logo menu (About, Settings, Force Quit, Sleep/Restart/Shut Down, Lock), the **bold name of the app in front**, then File / Edit / View / Window / Help. Menu items send the standard shortcut (Copy → Ctrl+C) to the front app, so they work in almost any program. With a menu open, sliding along the bar switches menus. On the right: battery, Wi-Fi, Spotlight, Control Center, clock. On the desktop it's a solid frosted bar that reserves its strip, and windows that were already maximized are moved down below it. |
 | **Window buttons** | Close / minimize / zoom buttons follow the active window. Hovering shows the ×, − and zoom symbols. Minimize plays the genie effect into the app's dock icon, and clicking the icon pours the window back out. |
 | **Spotlight** | **Alt+Space**. Fuzzy search over Start-menu apps (try `vsc`), inline maths (`(1440*900)/2`) and web search. |
 | **Launchpad** | Full-screen, paged grid of every installed app, with search. |
@@ -34,10 +34,19 @@ the genie minimize effect, Spotlight, Launchpad and Control Center.
 | **Dark mode** | Dock, menus, Control Center, Spotlight, Launchpad and widgets all switch to near-black glass, and the switch happens live. By default it follows the Windows light/dark setting. Set `"Appearance"` to force one, or use the Dark Mode tile in Control Center. |
 | **Glass look** | The compositor blurs whatever is behind each surface, with a tinted, rim-lit glass layer painted over it. Light and dark appearance are both supported. |
 
-## Run it
+## Install
 
-**Download:** the `build` GitHub Action publishes a self-contained `Orchard.exe` (artifact **Orchard-win-x64**).
-Nothing to install: double-click it. To start it with Windows, put a shortcut in `shell:startup`.
+1. Open the latest green run under [Actions](https://github.com/rayan-afkkk/macos-27/actions) and download
+   **OrchardSetup** from its *Artifacts* section.
+2. Unzip it and run `OrchardSetup.exe`. It installs just for you (no admin), adds Orchard to the Start menu, and can
+   start Orchard when you sign in.
+3. Windows SmartScreen may say "Windows protected your PC" because the installer isn't code-signed. Click
+   **More info → Run anyway**.
+
+The Start menu gets three entries: **Orchard**, **Orchard (try it in a window)** and **Restore Windows taskbar**.
+Uninstalling from *Settings → Apps* stops Orchard and puts the taskbar back first.
+
+Prefer no installer? The **Orchard-win-x64** artifact is the same app as a single portable `Orchard.exe`.
 
 **Build from source:**
 
@@ -59,7 +68,11 @@ Rebooting also resets the animation setting, because Orchard never writes it to 
 
 ## Settings
 
-Use **logo menu → Orchard Settings…**, or edit `%APPDATA%\Orchard\settings.json` and restart Orchard:
+Use **logo menu → Orchard Settings…**. It has a settings window for everything, plus **Save & Restart**.
+Everything is stored in `%APPDATA%\Orchard\settings.json`, which you can also edit by hand:
+
+![Settings](docs/screenshots/15-settings.png)
+
 
 ```jsonc
 {

@@ -8,9 +8,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\orchard.ico</ApplicationIcon>
+    <Product>Orchard</Product>
+    <Company>Orchard</Company>
+    <Description>A macOS-style desktop shell for Windows</Description>
     <AssemblyName>Orchard</AssemblyName>
     <RootNamespace>Orchard</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

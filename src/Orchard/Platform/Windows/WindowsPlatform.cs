@@ -77,6 +77,11 @@ public sealed class WindowsPlatform : IShellPlatform
     private void OnWinEvent(nint hook, uint ev, nint hwnd, int idObject, int idChild, uint thread, uint time)
     {
         if (idObject != Native.OBJID_WINDOW || idChild != Native.CHILDID_SELF || hwnd == 0) return;
+        if (ev is Native.EVENT_OBJECT_SHOW or Native.EVENT_OBJECT_LOCATIONCHANGE && Native.GetClass(hwnd) is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd")
+        {
+            TaskbarShown?.Invoke();
+            return;
+        }
         switch (ev)
         {
             case Native.EVENT_SYSTEM_FOREGROUND:
@@ -330,6 +335,35 @@ public sealed class WindowsPlatform : IShellPlatform
     }
 
     // ---- windows -------------------------------------------------------------------------------
+
+    private readonly Dictionary<nint, DateTime> _refitted = [];
+
+    /// <summary>
+    /// A window that was maximized before the menu bar reserved its strip (or that sizes itself, like many Electron apps)
+    /// can sit underneath the bar. Re-maximizing makes Windows recompute it against the current work area.
+    /// </summary>
+    public void FitMaximizedToWorkArea(nint hwnd)
+    {
+        if (hwnd == 0 || !Native.IsZoomed(hwnd)) return;
+        var work = Native.MonitorFor(hwnd).rcWork;
+        var visible = Native.VisibleBounds(hwnd);
+        if (visible.Top >= work.Top - 1) return;
+        // Never fight an app that insists on covering the bar: one attempt per window every 10 s.
+        if (_refitted.TryGetValue(hwnd, out var last) && DateTime.UtcNow - last < TimeSpan.FromSeconds(10)) return;
+        _refitted[hwnd] = DateTime.UtcNow;
+        Native.ShowWindow(hwnd, Native.SW_RESTORE);
+        Native.ShowWindow(hwnd, Native.SW_MAXIMIZE);
+    }
+
+    public void FitAllMaximized()
+    {
+        foreach (var app in _dock)
+            foreach (var w in app.Windows)
+                FitMaximizedToWorkArea(w);
+    }
+
+    /// <summary>Raised the moment Explorer shows or moves a taskbar, so the shell can hide it again before it's noticed.</summary>
+    public event Action? TaskbarShown;
 
     public void CloseWindow(nint hwnd) => Native.PostMessageW(hwnd, Native.WM_SYSCOMMAND, Native.SC_CLOSE, 0);
     public void MinimizeWindow(nint hwnd) => Native.ShowWindowAsync(hwnd, Native.SW_MINIMIZE);
